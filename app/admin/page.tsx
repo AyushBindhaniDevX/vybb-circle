@@ -201,7 +201,7 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Analytics */}
+        {/* Analytics Bento Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           {[
             { label: 'GROSS YIELD', val: `₹${analytics?.totalRevenue?.toLocaleString() || '0'}`, icon: DollarSign },
@@ -307,12 +307,15 @@ export default function AdminPage() {
         onSubmit={handleEventSubmit}
         initialData={editingEvent} 
       />
+      
+      {/* Fixed: Pass handlePurgeExperience to onConfirm */}
       <DeleteConfirmDialog 
         isOpen={deleteConfirmOpen} 
         onClose={() => setDeleteConfirmOpen(false)} 
         onConfirm={handlePurgeExperience} 
         eventTitle={eventToDelete?.title} 
       />
+      
       <QRScanner isOpen={scannerOpen} onScan={handleQRScan} onClose={() => setScannerOpen(false)} />
     </main>
   )
