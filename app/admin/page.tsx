@@ -38,6 +38,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { QRScanner } from "@/components/qr-scanner"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth()
@@ -120,7 +121,7 @@ export default function AdminPage() {
   }, [bookings, searchQuery])
 
   const handleEventSubmit = async (data: any) => {
-    const toastId = toast.loading(editingEvent ? "Updating event..." : "Creating event...")
+    const toastId = toast.loading(editingEvent ? "Updating experience..." : "Spawning experience...")
     try {
       const eventData = {
         ...data,
@@ -139,18 +140,18 @@ export default function AdminPage() {
         await createEvent(eventData)
       }
       
-      toast.success(editingEvent ? "Updated" : "Created", { id: toastId })
+      toast.success(editingEvent ? "Protocol Updated" : "Loop Initialized", { id: toastId })
       setEventFormOpen(false)
       setEditingEvent(null)
       fetchData()
     } catch (error) {
-      toast.error("Failed", { id: toastId })
+      toast.error("Process Failed", { id: toastId })
     }
   }
 
-  const handlePurgeExperience = async () => {
+  const handleDeleteEventAction = async () => {
     if (!eventToDelete) return
-    const toastId = toast.loading("Purging experience...")
+    const toastId = toast.loading("Purging experience registry...")
     try {
       await deleteEvent(eventToDelete.id)
       toast.success("Experience purged", { id: toastId })
@@ -158,7 +159,7 @@ export default function AdminPage() {
       setEventToDelete(null)
       fetchData()
     } catch (error) {
-      toast.error("Purge failed", { id: toastId })
+      toast.error("Purge failure", { id: toastId })
     }
   }
 
@@ -172,11 +173,6 @@ export default function AdminPage() {
 
   return (
     <main className="min-h-screen bg-black text-white selection:bg-[#7c3aed]/30 overflow-x-hidden">
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#7c3aed]/10 blur-[120px] rounded-full" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#c026d3]/10 blur-[120px] rounded-full animate-pulse" />
-      </div>
-
       <Navbar />
 
       <div className="relative pt-32 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -201,7 +197,6 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Analytics Bento Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           {[
             { label: 'GROSS YIELD', val: `₹${analytics?.totalRevenue?.toLocaleString() || '0'}`, icon: DollarSign },
@@ -308,11 +303,10 @@ export default function AdminPage() {
         initialData={editingEvent} 
       />
       
-      {/* Fixed: Pass handlePurgeExperience to onConfirm */}
       <DeleteConfirmDialog 
         isOpen={deleteConfirmOpen} 
         onClose={() => setDeleteConfirmOpen(false)} 
-        onConfirm={handlePurgeExperience} 
+        onConfirm={handleDeleteEventAction} 
         eventTitle={eventToDelete?.title} 
       />
       
@@ -348,41 +342,41 @@ function EventFormModal({ isOpen, onClose, onSubmit, initialData }: any) {
         <form onSubmit={(e) => { e.preventDefault(); onSubmit({ ...formData }); }} className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
           <div className="space-y-6">
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase text-zinc-500 ml-2">Identity</label>
+              <label className="text-[10px] font-black uppercase text-zinc-500 ml-2 flex items-center gap-2"><Zap className="h-3 w-3" /> Identity</label>
               <Input required value={formData.title || ""} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="h-14 bg-white/5 border-white/10 rounded-xl font-bold uppercase" />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase text-zinc-500 ml-2">Description</label>
+              <label className="text-[10px] font-black uppercase text-zinc-500 ml-2 flex items-center gap-2"><AlignLeft className="h-3 w-3" /> Description</label>
               <textarea required value={formData.description || ""} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full h-32 bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:border-violet-500 focus:outline-none" />
             </div>
             <div className="grid grid-cols-2 gap-4">
                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-zinc-500 ml-2">Price</label>
+                  <label className="text-[10px] font-black uppercase text-zinc-500 ml-2 flex items-center gap-2"><DollarSign className="h-3 w-3" /> Price</label>
                   <Input required type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} className="h-14 bg-white/5 border-white/10 rounded-xl font-bold" />
                </div>
                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-zinc-500 ml-2">Pool</label>
+                  <label className="text-[10px] font-black uppercase text-zinc-500 ml-2 flex items-center gap-2"><Users className="h-3 w-3" /> Pool Size</label>
                   <Input required type="number" value={formData.totalSeats} onChange={(e) => setFormData({ ...formData, totalSeats: e.target.value })} className="h-14 bg-white/5 border-white/10 rounded-xl font-bold" />
                </div>
             </div>
           </div>
           <div className="space-y-6">
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase text-zinc-500 ml-2">Venue</label>
+              <label className="text-[10px] font-black uppercase text-zinc-500 ml-2 flex items-center gap-2"><MapPin className="h-3 w-3" /> Venue</label>
               <Input required value={formData.venue || ""} onChange={(e) => setFormData({ ...formData, venue: e.target.value })} className="h-14 bg-white/5 border-white/10 rounded-xl font-bold uppercase" />
             </div>
             <div className="grid grid-cols-2 gap-4">
                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-zinc-500 ml-2">Lat</label>
+                  <label className="text-[10px] font-black uppercase text-zinc-500 ml-2">Latitude</label>
                   <Input required type="number" step="any" value={formData.coordinates.lat} onChange={(e) => setFormData({ ...formData, coordinates: { ...formData.coordinates, lat: parseFloat(e.target.value) } })} className="h-14 bg-white/5 border-white/10 rounded-xl font-bold" />
                </div>
                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-zinc-500 ml-2">Lng</label>
+                  <label className="text-[10px] font-black uppercase text-zinc-500 ml-2">Longitude</label>
                   <Input required type="number" step="any" value={formData.coordinates.lng} onChange={(e) => setFormData({ ...formData, coordinates: { ...formData.coordinates, lng: parseFloat(e.target.value) } })} className="h-14 bg-white/5 border-white/10 rounded-xl font-bold" />
                </div>
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase text-zinc-500 ml-2">Category</label>
+              <label className="text-[10px] font-black uppercase text-zinc-500 ml-2 flex items-center gap-2"><Sparkles className="h-3 w-3" /> Category</label>
               <Input required value={formData.category || ""} onChange={(e) => setFormData({ ...formData, category: e.target.value.toUpperCase() })} className="h-14 bg-white/5 border-white/10 rounded-xl font-bold uppercase" />
             </div>
             <div className="flex gap-4 pt-4">
