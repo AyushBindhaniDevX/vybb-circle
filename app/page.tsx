@@ -1,222 +1,201 @@
 "use client"
 
-import { Navbar } from "@/components/navbar"
-import { SpotlightCard } from "@/components/spotlight-card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import Link from "next/link"
-import { Music, Mic2, Users, ArrowRight, Calendar, MapPin, Sparkles, Zap, ShieldCheck } from "lucide-react"
 import { useEffect, useState } from "react"
-import { getFeaturedEvents, type Event } from "@/lib/db-utils"
-import { Skeleton } from "@/components/ui/skeleton"
+import { useAuth } from "@/components/auth-provider"
+import { useRouter } from "next/navigation"
+import { Navbar } from "@/components/navbar"
 import { motion, AnimatePresence } from "framer-motion"
+import { 
+  isAdminUser, 
+  getAllBookings, 
+  getEvents, 
+  checkInBooking,
+  getAnalytics,
+  getBookingById,
+  type Booking,
+  type Event
+} from "@/lib/db-utils"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Users, Calendar, DollarSign, CheckCircle2, Search, Scan, Shield, Clock, Ticket, Zap, Plus, Edit, Trash2, Sparkles, MapPin
+} from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { QRScanner } from "@/components/qr-scanner"
+import { toast } from "sonner"
 
-export default function Home() {
-  const [featuredEvents, setFeaturedEvents] = useState<Event[]>([])
+export default function AdminPage() {
+  const { user, loading: authLoading } = useAuth()
+  const router = useRouter()
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [checkingAdmin, setCheckingAdmin] = useState(true)
+  const [bookings, setBookings] = useState<Booking[]>([])
+  const [events, setEvents] = useState<Event[]>([])
+  const [analytics, setAnalytics] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedGuests, setSelectedGuests] = useState<string[]>([])
+  const [scannerOpen, setScannerOpen] = useState(false)
 
   useEffect(() => {
-    const fetchEvents = async () => {
+    const checkAdmin = async () => {
+      if (!user) { setCheckingAdmin(false); return }
       try {
-        const events = await getFeaturedEvents(3)
-        setFeaturedEvents(events)
-      } catch (error) {
-        console.error("Error fetching featured events:", error)
-      } finally {
-        setLoading(false)
-      }
+        const adminStatus = await isAdminUser(user.email || "")
+        setIsAdmin(adminStatus)
+        if (!adminStatus) router.push("/")
+      } catch { setIsAdmin(false); router.push("/") }
+      finally { setCheckingAdmin(false) }
     }
-    fetchEvents()
-  }, [])
+    if (!authLoading) checkAdmin()
+  }, [user, authLoading, router])
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric'
-    }).toUpperCase()
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      const [bookingsData, eventsData, analyticsData] = await Promise.all([
+        getAllBookings(),
+        getEvents(),
+        getAnalytics()
+      ])
+      // Ensure bookings are unique by their ID (Payment ID)
+      setBookings(bookingsData)
+      setEvents(eventsData)
+      setAnalytics(analyticsData)
+    } finally { setLoading(false) }
   }
 
+  useEffect(() => { if (isAdmin) fetchData() }, [isAdmin])
+
+  const toggleGuest = (id: string) => {
+    setSelectedGuests(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id])
+  }
+
+  const handleBatchCheckIn = async () => {
+    if (selectedGuests.length === 0) return
+    const loadingToast = toast.loading(`Verifying ${selectedGuests.length} tickets...`)
+    try {
+      await Promise.all(selectedGuests.map(id => checkInBooking(id, user?.email || "admin")))
+      toast.success(`${selectedGuests.length} tickets verified.`, { id: loadingToast })
+      setSelectedGuests([])
+      fetchData()
+    } catch { toast.error("Batch verification failed.", { id: loadingToast }) }
+  }
+
+  const handleQRScan = async (data: string) => {
+    setScannerOpen(false)
+    try {
+      const booking = await getBookingById(data)
+      if (!booking) { toast.error("Registry not found."); return }
+      if (booking.checkedIn) { toast.warning("Ticket already used."); return }
+      await checkInBooking(booking.id, user?.email || "admin")
+      toast.success("Gate access granted.")
+      fetchData()
+    } catch { toast.error("Scan processing error.") }
+  }
+
+  if (authLoading || checkingAdmin) return (
+    <div className="min-h-screen bg-black flex items-center justify-center">
+      <Zap className="h-8 w-8 text-[#7c3aed] animate-pulse" />
+    </div>
+  )
+
   return (
-    <main className="min-h-screen bg-black text-white selection:bg-violet-500/30 font-sans overflow-x-hidden">
-      {/* Aurora Background Effects */}
+    <main className="min-h-screen bg-black text-white selection:bg-[#7c3aed]/30 overflow-x-hidden">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[25%] -left-[10%] w-[70%] h-[70%] bg-violet-600/10 blur-[120px] rounded-full animate-pulse" />
-        <div className="absolute top-[20%] -right-[10%] w-[50%] h-[50%] bg-fuchsia-600/10 blur-[120px] rounded-full" />
+        <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#7c3aed]/10 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#c026d3]/10 blur-[120px] rounded-full animate-pulse" />
       </div>
 
       <Navbar />
 
-      {/* Hero Section - Added pt-32 to fix the overlap issue from your image */}
-      <section className="relative flex min-h-screen flex-col items-center justify-center px-4 pt-32 text-center overflow-hidden">
-        <motion.div 
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          className="relative z-10"
-        >
-          <Badge className="mb-8 border-violet-500/30 bg-violet-500/10 px-6 py-2 text-[10px] font-black tracking-[0.3em] text-violet-400 uppercase backdrop-blur-md">
-            <Sparkles className="mr-2 h-3 w-3" /> Experience the Unfiltered
-          </Badge>
-          <h1 className="max-w-5xl text-balance text-6xl font-black italic tracking-tighter sm:text-9xl uppercase leading-[0.8] mb-8">
-            Live the <br />
-            <span className="bg-gradient-to-r from-violet-400 via-fuchsia-500 to-violet-400 bg-clip-text text-transparent animate-gradient">
-              Experience
-            </span>
-          </h1>
-          <p className="mt-8 max-w-xl mx-auto text-balance text-lg font-medium text-zinc-500 sm:text-xl lowercase border-l-2 border-violet-500/50 pl-6 text-left">
-            Beyond music. Beyond borders. Vybb Live is the pulse of the generation. Jam, vibe, and belong.
-          </p>
-          
-          <div className="mt-12 flex flex-wrap justify-center gap-4">
-            <Link href="/events">
-               <Button size="lg" className="rounded-full bg-white text-black hover:bg-violet-600 hover:text-white font-black px-8 h-14 transition-all active:scale-95 shadow-xl">
-                 GET TICKETS <ArrowRight className="ml-2 h-5 w-5" />
-               </Button>
-            </Link>
+      <div className="relative pt-32 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+          <div className="text-left">
+            <Badge className="mb-4 bg-[#7c3aed]/20 text-[#a78bfa] border-[#7c3aed]/30 font-black uppercase text-[8px] tracking-[0.3em] px-4 py-1">
+              <Shield className="h-3 w-3 mr-2" /> Protocol Level 01 Access
+            </Badge>
+            <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-[0.9]">
+              VYBB <span className="text-[#7c3aed] italic">COMMAND</span>
+            </h1>
+          </div>
+          <div className="flex gap-4">
+            <Button onClick={() => setScannerOpen(true)} className="h-16 rounded-[1.5rem] bg-white text-black hover:bg-[#7c3aed] font-black uppercase tracking-widest px-8 shadow-2xl">
+              <Scan className="h-5 w-5 mr-3" /> Gate Scanner
+            </Button>
+            <AnimatePresence>
+              {selectedGuests.length > 0 && (
+                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}>
+                  <Button onClick={handleBatchCheckIn} className="h-16 rounded-[1.5rem] bg-[#7c3aed] text-white font-black uppercase px-8 shadow-2xl">
+                    VERIFY BATCH ({selectedGuests.length})
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </motion.div>
-      </section>
 
-      {/* Magic Bento - Latest Drops */}
-      <section className="relative z-10 mx-auto max-w-7xl px-4 py-32 sm:px-6 lg:px-8">
-        <motion.div 
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          className="mb-20 space-y-4"
-        >
-          <div className="flex items-center gap-4">
-             <Zap className="text-violet-500 h-8 w-8" />
-             <h2 className="text-4xl font-black italic uppercase tracking-tighter sm:text-6xl">Latest Drops</h2>
-          </div>
-          <div className="h-1 w-24 bg-violet-600 rounded-full" />
-        </motion.div>
+        <Tabs defaultValue="bookings" className="space-y-10">
+          <TabsList className="bg-white/5 border border-white/10 p-1 rounded-2xl h-14 w-full justify-start overflow-x-auto no-scrollbar">
+            <TabsTrigger value="bookings" className="rounded-xl px-8 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-[#7c3aed]">Guest Registry</TabsTrigger>
+          </TabsList>
 
-        {loading ? (
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {[...Array(3)].map((_, i) => (
-              <Skeleton key={i} className="h-[500px] w-full rounded-3xl bg-zinc-900" />
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {featuredEvents.map((exp, index) => (
-              <motion.div
-                key={exp.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                viewport={{ once: true }}
-              >
-                <SpotlightCard>
-                  <div className="group relative aspect-[4/5] w-full overflow-hidden rounded-3xl border border-white/5">
-                    <img
-                      src={exp.imageUrl || "/placeholder.svg"}
-                      alt={exp.title}
-                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 grayscale-[0.5] group-hover:grayscale-0"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+          <TabsContent value="bookings">
+            <Card className="bg-zinc-950 border-white/5 p-4 sm:p-10 rounded-[3rem] shadow-2xl">
+              <div className="relative mb-10 group">
+                <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 group-focus-within:text-[#7c3aed] transition-colors" />
+                <Input placeholder="SEARCH GUEST OR PAYMENT ID..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-16 h-16 bg-white/5 border-white/10 rounded-2xl font-bold uppercase" />
+              </div>
 
-                    <div className="absolute inset-0 flex flex-col justify-end p-8">
-                      <Badge className="mb-4 w-fit bg-violet-600/20 text-violet-400 border-violet-500/30 backdrop-blur-md font-black italic tracking-wider uppercase text-[10px]">
-                        {exp.category}
-                      </Badge>
-                      <h3 className="mb-2 text-3xl font-black italic uppercase tracking-tighter leading-none group-hover:text-violet-400 transition-colors">
-                        {exp.title}
-                      </h3>
-                      
-                      <div className="flex items-center justify-between border-t border-white/10 pt-6 mt-6">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-zinc-500 uppercase">
-                            <Calendar className="h-3 w-3 text-violet-500" /> {formatDate(exp.date)}
+              <Tabs defaultValue={events[0]?.id} className="space-y-6">
+                <TabsList className="bg-white/5 p-1 rounded-xl h-12">
+                  {events.map(ev => (
+                    <TabsTrigger key={ev.id} value={ev.id} className="rounded-lg px-6 font-black uppercase text-[8px] tracking-widest data-[state=active]:bg-[#7c3aed]">{ev.title.split(":")[0]}</TabsTrigger>
+                  ))}
+                </TabsList>
+
+                {events.map(ev => {
+                  const evBookings = bookings.filter(b => b.eventId === ev.id && (b.attendeeDetails.name.toLowerCase().includes(searchQuery.toLowerCase()) || b.id.includes(searchQuery)))
+                  return (
+                    <TabsContent key={ev.id} value={ev.id} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                      {evBookings.map(guest => (
+                        <motion.div 
+                          key={guest.id} // Essential: Use unique Payment ID as key
+                          onClick={() => !guest.checkedIn && toggleGuest(guest.id)}
+                          className={`p-6 rounded-[2rem] border transition-all cursor-pointer flex items-center justify-between group ${
+                            guest.checkedIn ? "bg-green-500/5 border-green-500/20 opacity-40 grayscale" :
+                            selectedGuests.includes(guest.id) ? "bg-[#7c3aed]/10 border-[#7c3aed]" : "bg-white/5 border-white/10 hover:border-zinc-700"
+                          }`}
+                        >
+                          <div className="flex items-center gap-4 text-left">
+                            <div className="h-12 w-12 rounded-2xl flex items-center justify-center border bg-black/40 border-white/10">
+                              {guest.checkedIn ? <CheckCircle2 className="h-6 w-6 text-green-400" /> : <Users className="h-6 w-6 text-zinc-600 group-hover:text-[#7c3aed]" />}
+                            </div>
+                            <div>
+                              <p className="font-bold text-base uppercase italic tracking-tight">{guest.attendeeDetails.name}</p>
+                              <p className="text-[9px] font-black text-[#7c3aed] uppercase tracking-widest mt-1">ID: ...{guest.id.slice(-8)}</p>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-zinc-500 uppercase">
-                            <MapPin className="h-3 w-3 text-violet-500" /> {exp.venue}
-                          </div>
-                        </div>
-                        <Link href={`/events/${exp.id}`}>
-                          <Button
-                            size="icon"
-                            className="h-12 w-12 rounded-2xl bg-white text-black hover:bg-violet-600 hover:text-white transition-all active:scale-90"
-                          >
-                            <ArrowRight className="h-6 w-6" />
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                </SpotlightCard>
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </section>
+                          {!guest.checkedIn && (
+                            <div className={`h-8 w-8 rounded-xl border-2 transition-all flex items-center justify-center ${selectedGuests.includes(guest.id) ? "bg-[#7c3aed] border-[#7c3aed]" : "border-white/10 bg-transparent"}`}>
+                              {selectedGuests.includes(guest.id) && <Zap className="h-4 w-4 text-white fill-current" />}
+                            </div>
+                          )}
+                        </motion.div>
+                      ))}
+                    </TabsContent>
+                  )
+                })}
+              </Tabs>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
 
-      {/* Why Vybb? - Glass Surface Cards */}
-      <section className="relative z-10 px-4 py-32 sm:px-6 lg:px-8 bg-zinc-950/50 backdrop-blur-md">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-24 text-center">
-            <h2 className="text-4xl font-black italic tracking-tighter sm:text-6xl uppercase">The Culture</h2>
-            <p className="mt-4 text-zinc-500 font-medium">We're more than just events; we're a movement.</p>
-          </div>
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            {[
-              { icon: <Mic2 />, title: "Artist First", desc: "We provide a platform for emerging talent in intimate settings." },
-              { icon: <Music />, title: "High Fidelity", desc: "Meticulously planned sound systems for an immersive vybb." },
-              { icon: <Users />, title: "Community", desc: "Join our circle and discover a tribe that shares your pulse." }
-            ].map((feature, i) => (
-              <motion.div 
-                key={i}
-                whileHover={{ y: -10 }}
-                className="rounded-3xl border border-white/5 bg-black/40 p-10 text-left backdrop-blur-xl shadow-2xl relative overflow-hidden group"
-              >
-                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-20 transition-opacity">
-                   <ShieldCheck className="h-24 w-24 text-violet-500" />
-                </div>
-                <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-500/10 text-violet-400 border border-violet-500/20">
-                  {feature.icon}
-                </div>
-                <h3 className="mb-4 text-2xl font-black italic uppercase tracking-tight">{feature.title}</h3>
-                <p className="text-zinc-500 text-sm leading-relaxed font-medium">
-                  {feature.desc}
-                </p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="relative z-10 px-4 py-40 overflow-hidden">
-        <div className="absolute inset-0 -z-10 bg-violet-600/5 blur-[120px] rounded-full" />
-        <div className="mx-auto max-w-4xl text-center rounded-[3rem] border border-white/5 bg-zinc-900/20 p-20 backdrop-blur-xl">
-          <h2 className="text-5xl font-black italic mb-8 uppercase tracking-tighter sm:text-7xl leading-none">Ready to <br/><span className="text-violet-500">Vybb?</span></h2>
-          <p className="text-zinc-500 mb-12 max-w-lg mx-auto font-medium">
-            Join the circle. Don't just watch the show, be the show.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <Link href="/events">
-              <Button size="lg" className="bg-white text-black hover:bg-violet-600 hover:text-white px-12 h-16 rounded-full font-black text-lg transition-all active:scale-95 shadow-2xl shadow-violet-500/10">
-                JOIN THE CIRCLE
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <footer className="relative z-10 border-t border-white/5 bg-black px-4 py-20 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl flex flex-col items-center justify-between gap-12 md:flex-row">
-          <div className="text-2xl font-black italic tracking-tighter">
-            VYBB <span className="text-violet-500">LIVE</span>
-          </div>
-          <div className="flex flex-wrap justify-center gap-12 text-[10px] font-black tracking-[0.2em] text-zinc-500 uppercase">
-            <Link href="/about" className="hover:text-violet-400 transition-colors">Our Story</Link>
-            <Link href="/events" className="hover:text-violet-400 transition-colors">Experiences</Link>
-            <Link href="/profile" className="hover:text-violet-400 transition-colors">My Profile</Link>
-          </div>
-          <div className="text-[10px] font-bold text-zinc-700 uppercase tracking-widest">© 2026 Vybb Circle.</div>
-        </div>
-      </footer>
+      <QRScanner isOpen={scannerOpen} onScan={handleQRScan} onClose={() => setScannerOpen(false)} />
     </main>
   )
 }
