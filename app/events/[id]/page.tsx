@@ -100,18 +100,6 @@ export default function AdminPage() {
     }
   }
 
-  const handleSingleCheckIn = async (bookingId: string) => {
-    if (!user?.email) return
-    const toastId = toast.loading("Verifying guest...")
-    try {
-      await checkInBooking(bookingId, user.email)
-      toast.success("Guest protocol verified.", { id: toastId })
-      fetchData()
-    } catch {
-      toast.error("Verification failed.", { id: toastId })
-    }
-  }
-
   const handleQRScan = async (data: string) => {
     setScannerOpen(false)
     try {
@@ -199,7 +187,6 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Analytics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           {[
             { label: 'GROSS YIELD', val: `₹${analytics?.totalRevenue?.toLocaleString() || '0'}`, icon: DollarSign },
@@ -287,7 +274,7 @@ export default function AdminPage() {
                               {b.checkedIn ? <Badge className="bg-green-500/10 text-green-400 border-green-500/20 font-black text-[8px]">VERIFIED</Badge> : <Badge className="bg-orange-500/10 text-orange-400 border-orange-500/20 font-black text-[8px]">AWAITING</Badge>}
                             </TableCell>
                             <TableCell className="text-right pr-8">
-                               {!b.checkedIn && <Button size="sm" onClick={() => handleSingleCheckIn(b.id)} className="rounded-full bg-[#7c3aed] hover:bg-white hover:text-black font-black text-[8px] px-6">VERIFY ENTRY</Button>}
+                               {!b.checkedIn && <Button size="sm" onClick={() => checkInBooking(b.id, user?.email || "admin").then(fetchData)} className="rounded-full bg-[#7c3aed] hover:bg-white hover:text-black font-black text-[8px] px-6">VERIFY ENTRY</Button>}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -308,7 +295,7 @@ export default function AdminPage() {
       <DeleteConfirmDialog 
         isOpen={deleteConfirmOpen} 
         onClose={() => setDeleteConfirmOpen(false)} 
-        onConfirm={() => eventToDelete && deleteEvent(eventToDelete.id).then(fetchData).then(() => setDeleteConfirmOpen(false))} 
+        onConfirm={handleDeleteEvent} 
         eventTitle={eventToDelete?.title} 
       />
       <QRScanner isOpen={scannerOpen} onScan={handleQRScan} onClose={() => setScannerOpen(false)} />
