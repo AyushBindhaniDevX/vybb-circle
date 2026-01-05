@@ -1,201 +1,265 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useAuth } from "@/components/auth-provider"
-import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/navbar"
-import { motion, AnimatePresence } from "framer-motion"
-import { 
-  isAdminUser, 
-  getAllBookings, 
-  getEvents, 
-  checkInBooking,
-  getAnalytics,
-  getBookingById,
-  type Booking,
-  type Event
-} from "@/lib/db-utils"
+import { SpotlightCard } from "@/components/spotlight-card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Card } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Users, Calendar, DollarSign, CheckCircle2, Search, Scan, Shield, Clock, Ticket, Zap, Plus, Edit, Trash2, Sparkles, MapPin
-} from "lucide-react"
+import Link from "next/link"
+import { Music, Mic2, Users, ArrowRight, Calendar, MapPin, Sparkles, Zap, ShieldCheck, Ticket } from "lucide-react"
+import { useEffect, useState } from "react"
+import { getFeaturedEvents, type Event } from "@/lib/db-utils"
 import { Skeleton } from "@/components/ui/skeleton"
-import { QRScanner } from "@/components/qr-scanner"
-import { toast } from "sonner"
+import { motion, AnimatePresence } from "framer-motion"
 
-export default function AdminPage() {
-  const { user, loading: authLoading } = useAuth()
-  const router = useRouter()
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [checkingAdmin, setCheckingAdmin] = useState(true)
-  const [bookings, setBookings] = useState<Booking[]>([])
-  const [events, setEvents] = useState<Event[]>([])
-  const [analytics, setAnalytics] = useState<any>(null)
+// --- React Bits Components ---
+
+// 1. Counter Bit
+const RollingCounter = ({ value }: { value: number }) => {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let start = 0;
+    const end = value;
+    if (start === end) return;
+    let timer = setInterval(() => {
+      start += Math.ceil(end / 50);
+      if (start >= end) {
+        setCount(end);
+        clearInterval(timer);
+      } else {
+        setCount(start);
+      }
+    }, 30);
+    return () => clearInterval(timer);
+  }, [value]);
+  return <span className="tabular-nums">{count.toLocaleString()}+</span>;
+};
+
+// 2. Bounce Card Bit (Hero Visuals)
+const BounceCard = ({ className, delay = 0 }: { className?: string; delay?: number }) => (
+  <motion.div
+    initial={{ y: 0 }}
+    animate={{ y: [-10, 10, -10] }}
+    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay }}
+    className={`rounded-2xl border border-white/10 bg-zinc-900/50 backdrop-blur-md p-4 shadow-2xl ${className}`}
+  >
+    <div className="flex items-center gap-3">
+      <div className="h-8 w-8 rounded-full bg-violet-500/20 flex items-center justify-center">
+        <Ticket className="h-4 w-4 text-violet-400" />
+      </div>
+      <div className="h-2 w-16 bg-white/10 rounded" />
+    </div>
+  </motion.div>
+);
+
+export default function Home() {
+  const [featuredEvents, setFeaturedEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedGuests, setSelectedGuests] = useState<string[]>([])
-  const [scannerOpen, setScannerOpen] = useState(false)
 
   useEffect(() => {
-    const checkAdmin = async () => {
-      if (!user) { setCheckingAdmin(false); return }
+    const fetchEvents = async () => {
       try {
-        const adminStatus = await isAdminUser(user.email || "")
-        setIsAdmin(adminStatus)
-        if (!adminStatus) router.push("/")
-      } catch { setIsAdmin(false); router.push("/") }
-      finally { setCheckingAdmin(false) }
+        const events = await getFeaturedEvents(3)
+        setFeaturedEvents(events)
+      } catch (error) {
+        console.error("Error fetching featured events:", error)
+      } finally {
+        setLoading(false)
+      }
     }
-    if (!authLoading) checkAdmin()
-  }, [user, authLoading, router])
+    fetchEvents()
+  }, [])
 
-  const fetchData = async () => {
-    try {
-      setLoading(true)
-      const [bookingsData, eventsData, analyticsData] = await Promise.all([
-        getAllBookings(),
-        getEvents(),
-        getAnalytics()
-      ])
-      // Ensure bookings are unique by their ID (Payment ID)
-      setBookings(bookingsData)
-      setEvents(eventsData)
-      setAnalytics(analyticsData)
-    } finally { setLoading(false) }
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric'
+    }).toUpperCase()
   }
-
-  useEffect(() => { if (isAdmin) fetchData() }, [isAdmin])
-
-  const toggleGuest = (id: string) => {
-    setSelectedGuests(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id])
-  }
-
-  const handleBatchCheckIn = async () => {
-    if (selectedGuests.length === 0) return
-    const loadingToast = toast.loading(`Verifying ${selectedGuests.length} tickets...`)
-    try {
-      await Promise.all(selectedGuests.map(id => checkInBooking(id, user?.email || "admin")))
-      toast.success(`${selectedGuests.length} tickets verified.`, { id: loadingToast })
-      setSelectedGuests([])
-      fetchData()
-    } catch { toast.error("Batch verification failed.", { id: loadingToast }) }
-  }
-
-  const handleQRScan = async (data: string) => {
-    setScannerOpen(false)
-    try {
-      const booking = await getBookingById(data)
-      if (!booking) { toast.error("Registry not found."); return }
-      if (booking.checkedIn) { toast.warning("Ticket already used."); return }
-      await checkInBooking(booking.id, user?.email || "admin")
-      toast.success("Gate access granted.")
-      fetchData()
-    } catch { toast.error("Scan processing error.") }
-  }
-
-  if (authLoading || checkingAdmin) return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
-      <Zap className="h-8 w-8 text-[#7c3aed] animate-pulse" />
-    </div>
-  )
 
   return (
-    <main className="min-h-screen bg-black text-white selection:bg-[#7c3aed]/30 overflow-x-hidden">
+    <main className="min-h-screen bg-black text-white selection:bg-violet-500/30 font-sans overflow-x-hidden">
+      {/* Aurora Background Effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#7c3aed]/10 blur-[120px] rounded-full" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#c026d3]/10 blur-[120px] rounded-full animate-pulse" />
+        <div className="absolute -top-[25%] -left-[10%] w-[70%] h-[70%] bg-violet-600/10 blur-[120px] rounded-full animate-pulse" />
+        <div className="absolute top-[20%] -right-[10%] w-[50%] h-[50%] bg-fuchsia-600/10 blur-[120px] rounded-full" />
       </div>
 
       <Navbar />
 
-      <div className="relative pt-32 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-          <div className="text-left">
-            <Badge className="mb-4 bg-[#7c3aed]/20 text-[#a78bfa] border-[#7c3aed]/30 font-black uppercase text-[8px] tracking-[0.3em] px-4 py-1">
-              <Shield className="h-3 w-3 mr-2" /> Protocol Level 01 Access
-            </Badge>
-            <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-[0.9]">
-              VYBB <span className="text-[#7c3aed] italic">COMMAND</span>
-            </h1>
+      {/* Hero Section with Bounce Cards */}
+      <section className="relative flex min-h-screen flex-col items-center justify-center px-4 pt-32 text-center overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-7xl pointer-events-none">
+          <BounceCard className="absolute top-[-200px] left-[10%] rotate-[-12deg]" delay={0} />
+          <BounceCard className="absolute top-[100px] right-[5%] rotate-[8deg]" delay={1} />
+          <BounceCard className="absolute bottom-[-150px] left-[15%] rotate-[5deg]" delay={2} />
+        </div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="relative z-10"
+        >
+          <Badge className="mb-8 border-violet-500/30 bg-violet-500/10 px-6 py-2 text-[10px] font-black tracking-[0.3em] text-violet-400 uppercase backdrop-blur-md">
+            <Sparkles className="mr-2 h-3 w-3" /> Experience the Unfiltered
+          </Badge>
+          <h1 className="max-w-5xl text-balance text-6xl font-black italic tracking-tighter sm:text-9xl uppercase leading-[0.8] mb-8">
+            Live the <br />
+            <span className="bg-gradient-to-r from-violet-400 via-fuchsia-500 to-violet-400 bg-clip-text text-transparent animate-gradient">
+              Experience
+            </span>
+          </h1>
+          
+          {/* Counter Bit Integration */}
+          <div className="mt-4 flex items-center justify-center gap-8 text-zinc-500 font-black italic uppercase tracking-tighter">
+            <div className="flex flex-col">
+              <span className="text-3xl text-white"><RollingCounter value={1200} /></span>
+              <span className="text-[10px] tracking-widest">Admissions</span>
+            </div>
+            <div className="w-px h-8 bg-white/10" />
+            <div className="flex flex-col">
+              <span className="text-3xl text-white"><RollingCounter value={45} /></span>
+              <span className="text-[10px] tracking-widest">Artists</span>
+            </div>
           </div>
-          <div className="flex gap-4">
-            <Button onClick={() => setScannerOpen(true)} className="h-16 rounded-[1.5rem] bg-white text-black hover:bg-[#7c3aed] font-black uppercase tracking-widest px-8 shadow-2xl">
-              <Scan className="h-5 w-5 mr-3" /> Gate Scanner
-            </Button>
-            <AnimatePresence>
-              {selectedGuests.length > 0 && (
-                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}>
-                  <Button onClick={handleBatchCheckIn} className="h-16 rounded-[1.5rem] bg-[#7c3aed] text-white font-black uppercase px-8 shadow-2xl">
-                    VERIFY BATCH ({selectedGuests.length})
-                  </Button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+
+          <div className="mt-12 flex flex-wrap justify-center gap-4">
+            <Link href="/events">
+               <Button size="lg" className="rounded-full bg-white text-black hover:bg-violet-600 hover:text-white font-black px-12 h-16 transition-all active:scale-95 shadow-xl shadow-violet-500/20">
+                  GET TICKETS <ArrowRight className="ml-2 h-5 w-5" />
+               </Button>
+            </Link>
           </div>
         </motion.div>
+      </section>
 
-        <Tabs defaultValue="bookings" className="space-y-10">
-          <TabsList className="bg-white/5 border border-white/10 p-1 rounded-2xl h-14 w-full justify-start overflow-x-auto no-scrollbar">
-            <TabsTrigger value="bookings" className="rounded-xl px-8 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-[#7c3aed]">Guest Registry</TabsTrigger>
-          </TabsList>
+      {/* Magic Bento - Grid Layout */}
+      <section className="relative z-10 mx-auto max-w-7xl px-4 py-32 sm:px-6 lg:px-8">
+        <div className="mb-20 flex items-center justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+               <Zap className="text-violet-500 h-8 w-8" />
+               <h2 className="text-4xl font-black italic uppercase tracking-tighter sm:text-6xl">Latest Drops</h2>
+            </div>
+            <div className="h-1 w-24 bg-violet-600 rounded-full" />
+          </div>
+          <Link href="/events" className="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors">
+            View All Events —&gt;
+          </Link>
+        </div>
 
-          <TabsContent value="bookings">
-            <Card className="bg-zinc-950 border-white/5 p-4 sm:p-10 rounded-[3rem] shadow-2xl">
-              <div className="relative mb-10 group">
-                <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 group-focus-within:text-[#7c3aed] transition-colors" />
-                <Input placeholder="SEARCH GUEST OR PAYMENT ID..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-16 h-16 bg-white/5 border-white/10 rounded-2xl font-bold uppercase" />
-              </div>
+        {loading ? (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-4 md:grid-rows-2">
+            <Skeleton className="md:col-span-2 md:row-span-2 h-[600px] rounded-[2.5rem] bg-zinc-900" />
+            <Skeleton className="md:col-span-2 h-[290px] rounded-[2.5rem] bg-zinc-900" />
+            <Skeleton className="md:col-span-1 h-[290px] rounded-[2.5rem] bg-zinc-900" />
+            <Skeleton className="md:col-span-1 h-[290px] rounded-[2.5rem] bg-zinc-900" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-4 md:grid-rows-2">
+            {/* Bento Primary Item */}
+            {featuredEvents[0] && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9 }} 
+                whileInView={{ opacity: 1, scale: 1 }}
+                className="md:col-span-2 md:row-span-2 group relative overflow-hidden rounded-[2.5rem] border border-white/5"
+              >
+                <img src={featuredEvents[0].imageUrl} className="h-full w-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition-transform duration-1000 group-hover:scale-105" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
+                <div className="absolute bottom-0 left-0 p-10">
+                  <Badge className="bg-violet-600 mb-4">{featuredEvents[0].category}</Badge>
+                  <h3 className="text-5xl font-black italic uppercase tracking-tighter leading-none mb-4">{featuredEvents[0].title}</h3>
+                  <Link href={`/events/${featuredEvents[0].id}`}>
+                    <Button className="rounded-full bg-white text-black font-black">RESERVE NOW</Button>
+                  </Link>
+                </div>
+              </motion.div>
+            )}
+            {/* Bento Secondary Items */}
+            {featuredEvents.slice(1, 4).map((exp, i) => (
+              <motion.div 
+                key={exp.id}
+                initial={{ opacity: 0, x: 20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.1 }}
+                className={`${i === 0 ? 'md:col-span-2' : 'md:col-span-1'} group relative overflow-hidden rounded-[2.5rem] border border-white/5 bg-zinc-900/50`}
+              >
+                <img src={exp.imageUrl} className="h-full w-full object-cover opacity-50 group-hover:opacity-100 transition-all grayscale group-hover:grayscale-0" />
+                <div className="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors" />
+                <div className="absolute inset-0 p-8 flex flex-col justify-end">
+                   <h3 className="text-xl font-black italic uppercase leading-tight">{exp.title}</h3>
+                   <p className="text-[10px] font-black text-zinc-400 tracking-widest mt-2">{formatDate(exp.date)}</p>
+                </div>
+                <Link href={`/events/${exp.id}`} className="absolute inset-0 z-10" />
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </section>
 
-              <Tabs defaultValue={events[0]?.id} className="space-y-6">
-                <TabsList className="bg-white/5 p-1 rounded-xl h-12">
-                  {events.map(ev => (
-                    <TabsTrigger key={ev.id} value={ev.id} className="rounded-lg px-6 font-black uppercase text-[8px] tracking-widest data-[state=active]:bg-[#7c3aed]">{ev.title.split(":")[0]}</TabsTrigger>
-                  ))}
-                </TabsList>
+      {/* Pixel Card Section (The Culture) */}
+      <section className="relative z-10 px-4 py-32 sm:px-6 lg:px-8 bg-zinc-950/50 backdrop-blur-md">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-24 text-center">
+            <h2 className="text-4xl font-black italic tracking-tighter sm:text-6xl uppercase">The Culture</h2>
+            <p className="mt-4 text-zinc-500 font-medium lowercase tracking-widest">We&apos;re more than just events; we&apos;re a movement.</p>
+          </div>
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+            {[
+              { icon: <Mic2 />, title: "Artist First", desc: "We provide a platform for emerging talent in intimate settings." },
+              { icon: <Music />, title: "High Fidelity", desc: "Meticulously planned sound systems for an immersive vybb." },
+              { icon: <Users />, title: "Community", desc: "Join our circle and discover a tribe that shares your pulse." }
+            ].map((feature, i) => (
+              <motion.div 
+                key={i}
+                whileHover={{ y: -10 }}
+                className="relative p-1 group overflow-hidden rounded-[2rem]"
+              >
+                {/* Pixel/Spotlight Card Effect */}
+                <div className="absolute inset-0 bg-gradient-to-br from-violet-600/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="relative rounded-[1.9rem] bg-black border border-white/5 p-10 h-full">
+                  <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                    {feature.icon}
+                  </div>
+                  <h3 className="mb-4 text-2xl font-black italic uppercase tracking-tight">{feature.title}</h3>
+                  <p className="text-zinc-500 text-sm leading-relaxed font-medium">
+                    {feature.desc}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-                {events.map(ev => {
-                  const evBookings = bookings.filter(b => b.eventId === ev.id && (b.attendeeDetails.name.toLowerCase().includes(searchQuery.toLowerCase()) || b.id.includes(searchQuery)))
-                  return (
-                    <TabsContent key={ev.id} value={ev.id} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                      {evBookings.map(guest => (
-                        <motion.div 
-                          key={guest.id} // Essential: Use unique Payment ID as key
-                          onClick={() => !guest.checkedIn && toggleGuest(guest.id)}
-                          className={`p-6 rounded-[2rem] border transition-all cursor-pointer flex items-center justify-between group ${
-                            guest.checkedIn ? "bg-green-500/5 border-green-500/20 opacity-40 grayscale" :
-                            selectedGuests.includes(guest.id) ? "bg-[#7c3aed]/10 border-[#7c3aed]" : "bg-white/5 border-white/10 hover:border-zinc-700"
-                          }`}
-                        >
-                          <div className="flex items-center gap-4 text-left">
-                            <div className="h-12 w-12 rounded-2xl flex items-center justify-center border bg-black/40 border-white/10">
-                              {guest.checkedIn ? <CheckCircle2 className="h-6 w-6 text-green-400" /> : <Users className="h-6 w-6 text-zinc-600 group-hover:text-[#7c3aed]" />}
-                            </div>
-                            <div>
-                              <p className="font-bold text-base uppercase italic tracking-tight">{guest.attendeeDetails.name}</p>
-                              <p className="text-[9px] font-black text-[#7c3aed] uppercase tracking-widest mt-1">ID: ...{guest.id.slice(-8)}</p>
-                            </div>
-                          </div>
-                          {!guest.checkedIn && (
-                            <div className={`h-8 w-8 rounded-xl border-2 transition-all flex items-center justify-center ${selectedGuests.includes(guest.id) ? "bg-[#7c3aed] border-[#7c3aed]" : "border-white/10 bg-transparent"}`}>
-                              {selectedGuests.includes(guest.id) && <Zap className="h-4 w-4 text-white fill-current" />}
-                            </div>
-                          )}
-                        </motion.div>
-                      ))}
-                    </TabsContent>
-                  )
-                })}
-              </Tabs>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+      {/* CTA Section */}
+      <section className="relative z-10 px-4 py-40 overflow-hidden">
+        <div className="absolute inset-0 -z-10 bg-violet-600/5 blur-[120px] rounded-full" />
+        <div className="mx-auto max-w-4xl text-center rounded-[3rem] border border-white/5 bg-zinc-900/20 p-20 backdrop-blur-xl">
+          <h2 className="text-5xl font-black italic mb-8 uppercase tracking-tighter sm:text-7xl leading-none">Ready to <br/><span className="text-violet-500">Vybb?</span></h2>
+          <div className="flex flex-col sm:flex-row gap-6 justify-center">
+            <Link href="/events">
+              <Button size="lg" className="bg-white text-black hover:bg-violet-600 hover:text-white px-12 h-16 rounded-full font-black text-lg transition-all active:scale-95 shadow-2xl shadow-violet-500/10">
+                JOIN THE CIRCLE
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
 
-      <QRScanner isOpen={scannerOpen} onScan={handleQRScan} onClose={() => setScannerOpen(false)} />
+      {/* Footer */}
+      <footer className="relative z-10 border-t border-white/5 bg-black px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl flex flex-col items-center justify-between gap-12 md:flex-row">
+          <div className="text-2xl font-black italic tracking-tighter">
+            VYBB <span className="text-violet-500">LIVE</span>
+          </div>
+          <div className="flex flex-wrap justify-center gap-12 text-[10px] font-black tracking-[0.2em] text-zinc-500 uppercase">
+            <Link href="/about" className="hover:text-violet-400 transition-colors">Our Story</Link>
+            <Link href="/events" className="hover:text-violet-400 transition-colors">Experiences</Link>
+          </div>
+          <div className="text-[10px] font-bold text-zinc-700 uppercase tracking-widest">© 2026 Vybb Circle.</div>
+        </div>
+      </footer>
     </main>
   )
 }
