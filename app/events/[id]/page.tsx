@@ -177,16 +177,19 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
             >
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-black italic flex items-center gap-3 uppercase">
-                  <Zap className="h-6 w-6 text-violet-500 fill-current" /> Seating Map
+                  <Zap className="h-6 w-6 text-violet-500 fill-current" /> 
+                  {event.category === "CRICKET" ? "Jersey Selection" : "Seating Map"}
                 </h2>
               </div>
 
               {user ? (
                 <SeatSelector
+                  category={event.category} // PASS THE CATEGORY HERE
                   totalSeats={event.totalSeats}
                   availableSeats={event.availableSeats}
                   pricePerSeat={event.price}
                   onSelectionChange={setSelectedSeats}
+                  maxSelection={event.category === "CRICKET" ? 1 : 4}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center py-20 bg-black/40 rounded-[2rem] border border-dashed border-white/10 space-y-6">
@@ -264,7 +267,7 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                   {user ? (
                     <Link href={selectedSeats.length > 0 ? `/checkout?event=${id}&seats=${selectedSeats.join(",")}` : "#"}>
                       <Button disabled={selectedSeats.length === 0} className="w-full h-14 bg-white text-black hover:bg-violet-600 hover:text-white font-black rounded-2xl transition-all active:scale-95 shadow-xl">
-                        {selectedSeats.length > 0 ? `BOOK ${selectedSeats.length} SEATS` : "SELECT SEATS"}
+                        {selectedSeats.length > 0 ? `BOOK ${selectedSeats.length} ${event.category === "CRICKET" ? "TICKET" : "SEATS"}` : `SELECT ${event.category === "CRICKET" ? "JERSEY" : "SEATS"}`}
                       </Button>
                     </Link>
                   ) : (
