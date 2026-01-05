@@ -16,8 +16,7 @@ import {
   deleteEvent,
   getBookingById,
   type Booking,
-  type Event,
-  checkInMultipleBookings
+  type Event
 } from "@/lib/db-utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,15 +26,53 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Users, Calendar, DollarSign, CheckCircle2, Search, Scan, Shield, Clock, Ticket, Zap, 
   Plus, Edit, Trash2, X, MapPin, Sparkles, Globe, ImageIcon, AlignLeft,
-  Download, Filter, MoreVertical, User, Mail, Phone, BarChart3, TrendingUp,
+  Download, Filter, User, Mail, BarChart3, TrendingUp,
   QrCode, Eye, EyeOff, RefreshCw, AlertCircle, Home, Music, Goal, Gamepad2, 
-  Upload, Video, Star, Crown, Package, Tag
+  Crown, Package, Tag
 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { QRScanner } from "@/components/qr-scanner"
 import { toast } from "sonner"
-import * as XLSX from "xlsx"
-import { saveAs } from "file-saver"
+
+// Simple CSV export function
+const exportToCSV = (data: any[], filename: string) => {
+  if (data.length === 0) {
+    toast.error("No data to export")
+    return
+  }
+
+  // Get headers from first object
+  const headers = Object.keys(data[0])
+  
+  // Create CSV content
+  const csvContent = [
+    headers.join(","),
+    ...data.map(row => 
+      headers.map(header => {
+        const value = row[header]
+        // Escape quotes and wrap in quotes if contains comma or quotes
+        return typeof value === 'string' && (value.includes(',') || value.includes('"')) 
+          ? `"${value.replace(/"/g, '""')}"` 
+          : value
+      }).join(",")
+    )
+  ].join("\n")
+
+  // Create blob and download
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  
+  link.setAttribute('href', url)
+  link.setAttribute('download', `${filename}-${new Date().toISOString().split('T')[0]}.csv`)
+  link.style.visibility = 'hidden'
+  
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  
+  toast.success("Export completed successfully")
+}
 
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth()
@@ -54,7 +91,6 @@ export default function AdminPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null)
   const [bulkCheckInModal, setBulkCheckInModal] = useState(false)
-  const [checkInStatus, setCheckInStatus] = useState<Record<string, boolean>>({})
   const [filter, setFilter] = useState("all") // all, checked-in, pending
   const [activeTab, setActiveTab] = useState("manage-events")
   const [eventStats, setEventStats] = useState<Record<string, any>>({})
@@ -107,9 +143,13 @@ export default function AdminPage() {
     if (selectedGuests.length === 0) return
     const toastId = toast.loading(`Checking in ${selectedGuests.length} guests...`)
     try {
-      await checkInMultipleBookings(selectedGuests, user?.email || "admin")
+      // Check in each guest individually
+      for (const guestId of selectedGuests) {
+        await checkInBooking(guestId, user?.email || "admin")
+      }
       toast.success(`Successfully checked in ${selectedGuests.length} guests`, { id: toastId })
       setSelectedGuests([])
+      setBulkCheckInModal(false)
       fetchData()
     } catch (error) {
       console.error(error)
@@ -190,8 +230,8 @@ export default function AdminPage() {
     }
   }
 
-  const exportToExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(filteredBookings.map(booking => ({
+  const handleExport = () => {
+    const exportData = filteredBookings.map(booking => ({
       'Booking ID': booking.id,
       'Guest Name': booking.attendeeDetails.name,
       'Email': booking.attendeeDetails.email,
@@ -200,22 +240,15 @@ export default function AdminPage() {
       'Event Date': booking.eventDate,
       'Venue': booking.eventVenue,
       'Tickets': booking.ticketCount,
-      'Seat Numbers': booking.seatNumbers?.join(', '),
+      'Seat Numbers': booking.seatNumbers?.join(', ') || 'N/A',
       'Amount Paid': `₹${booking.amount}`,
       'Payment Status': booking.paymentStatus,
       'Checked In': booking.checkedIn ? 'Yes' : 'No',
       'Booking Date': new Date(booking.createdAt).toLocaleString(),
       'Last Updated': new Date(booking.updatedAt).toLocaleString()
-    })))
+    }))
     
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Bookings')
-    
-    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
-    const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    saveAs(data, `bookings-export-${new Date().toISOString().split('T')[0]}.xlsx`)
-    
-    toast.success("Export completed successfully")
+    exportToCSV(exportData, 'bookings-export')
   }
 
   const filteredBookings = useMemo(() => {
@@ -240,7 +273,7 @@ export default function AdminPage() {
       case "CRICKET": return <Goal className="h-4 w-4" />
       case "FOOTBALL": return <Goal className="h-4 w-4" />
       case "MUSIC": return <Music className="h-4 w-4" />
-      case "OPEN MIC": return <Mic className="h-4 w-4" />
+      case "OPEN MIC": return <Music className="h-4 w-4" />
       case "SPORTS": return <Gamepad2 className="h-4 w-4" />
       default: return <Home className="h-4 w-4" />
     }
@@ -275,12 +308,6 @@ export default function AdminPage() {
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#7c3aed]/10 blur-[120px] rounded-full" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#c026d3]/10 blur-[120px] rounded-full animate-pulse" />
-        {/* Grid Overlay */}
-        <div className="absolute inset-0 opacity-[0.02]" style={{
-          backgroundImage: `linear-gradient(to right, #888 1px, transparent 1px),
-                           linear-gradient(to bottom, #888 1px, transparent 1px)`,
-          backgroundSize: '50px 50px'
-        }} />
       </div>
 
       <Navbar />
@@ -345,29 +372,21 @@ export default function AdminPage() {
                 label: 'TOTAL REVENUE', 
                 value: `₹${analytics?.totalRevenue?.toLocaleString() || '0'}`, 
                 icon: DollarSign,
-                change: '+12.5%',
-                trend: 'up'
               },
               { 
                 label: 'CHECKED IN', 
                 value: analytics?.checkedInCount || 0, 
                 icon: CheckCircle2,
-                change: `${analytics?.checkInRate || 0}% rate`,
-                trend: 'up'
               },
               { 
                 label: 'ACTIVE EVENTS', 
                 value: analytics?.totalEvents || 0, 
                 icon: Zap,
-                change: 'Live',
-                trend: 'neutral'
               },
               { 
                 label: 'TOTAL TICKETS', 
                 value: analytics?.totalTicketsSold || 0, 
                 icon: Ticket,
-                change: '+8.2%',
-                trend: 'up'
               }
             ].map((item, i) => (
               <Card key={i} className="p-8 rounded-[2.5rem] border border-white/5 bg-gradient-to-br from-zinc-950/80 to-black/80 backdrop-blur-xl shadow-2xl relative overflow-hidden group hover:border-[#7c3aed]/30 transition-all">
@@ -377,13 +396,6 @@ export default function AdminPage() {
                 <div className="relative">
                   <p className="text-[8px] font-black uppercase tracking-[0.3em] text-zinc-600 mb-2">{item.label}</p>
                   <div className="text-3xl font-black italic tracking-tight uppercase mb-2">{item.value}</div>
-                  <div className={`flex items-center gap-2 text-xs font-medium ${
-                    item.trend === 'up' ? 'text-green-400' : 
-                    item.trend === 'down' ? 'text-red-400' : 'text-zinc-500'
-                  }`}>
-                    <TrendingUp className={`h-3 w-3 ${item.trend === 'up' ? 'text-green-400' : 'opacity-0'}`} />
-                    {item.change}
-                  </div>
                 </div>
               </Card>
             ))}
@@ -397,9 +409,6 @@ export default function AdminPage() {
               </TabsTrigger>
               <TabsTrigger value="bookings" className="rounded-xl px-8 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-[#7c3aed]">
                 <Users className="h-3 w-3 mr-2" /> Bookings
-              </TabsTrigger>
-              <TabsTrigger value="analytics" className="rounded-xl px-8 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-[#7c3aed]">
-                <BarChart3 className="h-3 w-3 mr-2" /> Analytics
               </TabsTrigger>
             </TabsList>
 
@@ -544,10 +553,10 @@ export default function AdminPage() {
                     </div>
                     
                     <Button
-                      onClick={exportToExcel}
+                      onClick={handleExport}
                       className="rounded-xl bg-gradient-to-r from-green-500 to-emerald-600"
                     >
-                      <Download className="h-4 w-4 mr-2" /> Export
+                      <Download className="h-4 w-4 mr-2" /> Export CSV
                     </Button>
                   </div>
                 </div>
@@ -711,148 +720,6 @@ export default function AdminPage() {
                   </div>
                   <div className="text-sm font-medium text-white">
                     Selected: {selectedGuests.length} guest{selectedGuests.length !== 1 ? 's' : ''}
-                  </div>
-                </div>
-              </Card>
-            </TabsContent>
-
-            {/* Analytics Tab */}
-            <TabsContent value="analytics">
-              <Card className="bg-gradient-to-br from-zinc-950/80 to-black/80 border-white/5 p-8 rounded-[2.5rem] shadow-2xl">
-                <div className="text-left mb-8">
-                  <h2 className="text-2xl font-black italic uppercase">Event Analytics</h2>
-                  <p className="text-zinc-500 text-sm">Performance metrics and insights</p>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {/* Event Performance */}
-                  <div className="space-y-6">
-                    <h3 className="text-lg font-black uppercase text-white">Event Performance</h3>
-                    <div className="space-y-4">
-                      {events.map(event => {
-                        const stats = eventStats[event.id] || { totalTickets: 0, checkedIn: 0, revenue: 0 }
-                        const checkInRate = stats.totalTickets > 0 ? Math.round((stats.checkedIn / stats.totalTickets) * 100) : 0
-                        
-                        return (
-                          <div key={event.id} className="p-4 rounded-2xl bg-white/5 border border-white/5">
-                            <div className="flex items-center justify-between mb-3">
-                              <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#7c3aed]/20 to-[#6d28d9]/20 flex items-center justify-center">
-                                  {getEventIcon(event.category)}
-                                </div>
-                                <div>
-                                  <div className="font-bold text-white text-sm">{event.title}</div>
-                                  <div className="text-xs text-zinc-500">{event.date}</div>
-                                </div>
-                              </div>
-                              <Badge className="bg-[#7c3aed]/20 text-[#a78bfa]">
-                                {event.category}
-                              </Badge>
-                            </div>
-                            
-                            <div className="grid grid-cols-3 gap-4 mt-4">
-                              <div className="text-center">
-                                <div className="text-2xl font-black text-white">{stats.totalTickets}</div>
-                                <div className="text-xs text-zinc-500">Tickets</div>
-                              </div>
-                              <div className="text-center">
-                                <div className="text-2xl font-black text-white">{stats.checkedIn}</div>
-                                <div className="text-xs text-zinc-500">Checked In</div>
-                              </div>
-                              <div className="text-center">
-                                <div className="text-2xl font-black text-white">₹{stats.revenue}</div>
-                                <div className="text-xs text-zinc-500">Revenue</div>
-                              </div>
-                            </div>
-                            
-                            <div className="mt-4">
-                              <div className="flex items-center justify-between text-xs text-zinc-500 mb-1">
-                                <span>Check-in Rate</span>
-                                <span>{checkInRate}%</span>
-                              </div>
-                              <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                                <div 
-                                  className="h-full bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] rounded-full transition-all duration-500"
-                                  style={{ width: `${checkInRate}%` }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Statistics Overview */}
-                  <div className="space-y-6">
-                    <h3 className="text-lg font-black uppercase text-white">Statistics Overview</h3>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <Card className="p-6 rounded-2xl bg-white/5 border border-white/5">
-                        <div className="text-center">
-                          <div className="text-3xl font-black text-white mb-2">
-                            {analytics?.checkInRate || 0}%
-                          </div>
-                          <div className="text-sm text-zinc-500">Check-in Rate</div>
-                        </div>
-                      </Card>
-                      
-                      <Card className="p-6 rounded-2xl bg-white/5 border border-white/5">
-                        <div className="text-center">
-                          <div className="text-3xl font-black text-white mb-2">
-                            ₹{analytics?.avgRevenuePerEvent?.toLocaleString() || 0}
-                          </div>
-                          <div className="text-sm text-zinc-500">Avg. Revenue/Event</div>
-                        </div>
-                      </Card>
-                      
-                      <Card className="p-6 rounded-2xl bg-white/5 border border-white/5">
-                        <div className="text-center">
-                          <div className="text-3xl font-black text-white mb-2">
-                            {analytics?.totalEvents || 0}
-                          </div>
-                          <div className="text-sm text-zinc-500">Active Events</div>
-                        </div>
-                      </Card>
-                      
-                      <Card className="p-6 rounded-2xl bg-white/5 border border-white/5">
-                        <div className="text-center">
-                          <div className="text-3xl font-black text-white mb-2">
-                            {analytics?.totalUniqueGuests || 0}
-                          </div>
-                          <div className="text-sm text-zinc-500">Unique Guests</div>
-                        </div>
-                      </Card>
-                    </div>
-
-                    {/* Recent Activity */}
-                    <div className="mt-8">
-                      <h4 className="text-sm font-black uppercase text-white mb-4">Recent Activity</h4>
-                      <div className="space-y-3">
-                        {bookings.slice(0, 5).map(booking => (
-                          <div key={booking.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5">
-                            <div className="flex items-center gap-3">
-                              <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
-                                booking.checkedIn ? 'bg-green-500/20' : 'bg-yellow-500/20'
-                              }`}>
-                                {booking.checkedIn ? (
-                                  <CheckCircle2 className="h-4 w-4 text-green-400" />
-                                ) : (
-                                  <Clock className="h-4 w-4 text-yellow-400" />
-                                )}
-                              </div>
-                              <div>
-                                <div className="text-sm font-medium text-white">{booking.attendeeDetails.name}</div>
-                                <div className="text-xs text-zinc-500">{booking.eventTitle}</div>
-                              </div>
-                            </div>
-                            <div className="text-xs text-zinc-500">
-                              {new Date(booking.createdAt).toLocaleDateString()}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
                   </div>
                 </div>
               </Card>
