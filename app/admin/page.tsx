@@ -31,15 +31,13 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger
+} from "@/components/ui/tabs"
 import {
-  Users, Calendar, DollarSign, CheckCircle2, Search, Scan, Shield, Clock, Ticket, Zap, Plus, Edit, Trash2, X, MapPin, Sparkles
+  Users, Calendar, DollarSign, CheckCircle2, Search, Scan, Shield, Clock, Ticket, Zap, Plus, Edit, Trash2, MapPin, Sparkles
 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { QRScanner } from "@/components/qr-scanner"
@@ -55,13 +53,7 @@ export default function AdminPage() {
   const [analytics, setAnalytics] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedEvent, setSelectedEvent] = useState<string>("all")
-  const [selectedStatus, setSelectedStatus] = useState<string>("all")
   const [scannerOpen, setScannerOpen] = useState(false)
-  const [eventFormOpen, setEventFormOpen] = useState(false)
-  const [editingEvent, setEditingEvent] = useState<Event | null>(null)
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
-  const [eventToDelete, setEventToDelete] = useState<Event | null>(null)
 
   useEffect(() => {
     const checkAdminAccess = async () => {
@@ -98,39 +90,11 @@ export default function AdminPage() {
     if (!user?.email) return
     try {
       await checkInBooking(bookingId, user.email)
-      
-      // Find the booking to get details for email
-      const booking = bookings.find(b => b.id === bookingId)
-      
       setBookings(prev => prev.map(b => 
         b.id === bookingId 
-          ? { ...b, checkedIn: true, checkedInAt: new Date(), checkedInBy: user.email || undefined }
+          ? { ...b, checkedIn: true, checkedInAt: new Date() }
           : b
       ))
-      
-      // Send check-in confirmation email via Resend
-      if (booking?.attendeeDetails?.email) {
-        try {
-          await fetch('/api/send-checkin-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              to: booking.attendeeDetails.email,
-              customerName: booking.attendeeDetails.name,
-              eventTitle: booking.eventTitle,
-              eventDate: booking.eventDate,
-              eventVenue: booking.eventVenue,
-              seatNumbers: booking.seatNumbers,
-              checkedInAt: new Date().toISOString(),
-              checkedInBy: user.email
-            })
-          })
-        } catch (emailError) {
-          console.error('Failed to send check-in email:', emailError)
-          // Don't block check-in success if email fails
-        }
-      }
-      
       toast.success("Guest protocol verified.")
       fetchData()
     } catch { toast.error("Verification failed.") }
@@ -146,44 +110,14 @@ export default function AdminPage() {
     } catch { toast.error("Scan processing error.") }
   }
 
-  const handleCreateEvent = async (eventData: Omit<Event, "id">) => {
-    try {
-      await createEvent(eventData)
-      toast.success("Experience spawned.")
-      setEventFormOpen(false)
-      fetchData()
-    } catch (e: any) { toast.error(e.message) }
-  }
-
-  const handleUpdateEvent = async (eventId: string, eventData: Partial<Event>) => {
-    try {
-      await updateEvent(eventId, eventData)
-      toast.success("Loop updated.")
-      setEventFormOpen(false)
-      setEditingEvent(null)
-      fetchData()
-    } catch (e: any) { toast.error(e.message) }
-  }
-
-  const handleDeleteEvent = async (eventId: string) => {
-    try {
-      await deleteEvent(eventId)
-      toast.success("Loop terminated.")
-      setDeleteConfirmOpen(false)
-      fetchData()
-    } catch (e: any) { toast.error(e.message) }
-  }
-
-  const filteredBookings = bookings.filter(b => {
-    const matchesSearch = b.attendeeDetails.name.toLowerCase().includes(searchQuery.toLowerCase()) || b.id.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesEvent = selectedEvent === "all" || b.eventId === selectedEvent
-    const matchesStatus = selectedStatus === "all" || (selectedStatus === "checked-in" ? b.checkedIn : !b.checkedIn)
-    return matchesSearch && matchesEvent && matchesStatus
-  })
+  const filteredBookings = bookings.filter(b => 
+    b.attendeeDetails.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    b.id.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   if (authLoading || checkingAdmin) return (
     <div className="min-h-screen bg-black flex items-center justify-center">
-      <Zap className="h-8 w-8 text-[#7c3aed] animate-pulse" />
+      <Sparkles className="h-8 w-8 text-[#7c3aed] animate-pulse" />
     </div>
   )
 
@@ -191,7 +125,6 @@ export default function AdminPage() {
 
   return (
     <main className="min-h-screen bg-black text-white selection:bg-[#7c3aed]/30 overflow-x-hidden">
-      {/* Aurora Blurs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#7c3aed]/10 blur-[120px] rounded-full" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#c026d3]/10 blur-[120px] rounded-full animate-pulse" />
@@ -235,55 +168,27 @@ export default function AdminPage() {
             )}
           </div>
 
-          <Tabs defaultValue="manage-events" className="space-y-10">
+          <Tabs defaultValue="bookings" className="space-y-10">
             <TabsList className="bg-white/5 border border-white/10 p-1 rounded-2xl h-14">
               <TabsTrigger value="manage-events" className="rounded-xl px-8 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-[#7c3aed] transition-all">Engine</TabsTrigger>
               <TabsTrigger value="bookings" className="rounded-xl px-8 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-[#7c3aed] transition-all">Guest Logs</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="manage-events">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <motion.div whileHover={{ y: -5 }} onClick={() => { setEditingEvent(null); setEventFormOpen(true); }} className="cursor-pointer aspect-video md:aspect-auto rounded-[2.5rem] border-2 border-dashed border-white/10 bg-white/5 hover:border-[#7c3aed]/50 transition-all flex flex-col items-center justify-center p-12 text-center group">
-                  <Plus className="h-10 w-10 text-[#7c3aed] group-hover:scale-110 transition-transform" />
-                  <h3 className="mt-4 text-xl font-black italic uppercase tracking-tighter">New Experience</h3>
-                </motion.div>
-                {events.map((e, idx) => (
-                  <motion.div key={e.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }}>
-                    <Card className="bg-zinc-950 border-white/5 group rounded-[2.5rem] overflow-hidden hover:border-[#7c3aed]/30 transition-all shadow-2xl">
-                      <div className="relative h-44"><img src={e.imageUrl} className="w-full h-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all duration-700" alt="" /></div>
-                      <div className="p-8 text-left space-y-4">
-                        <h3 className="text-xl font-black italic uppercase tracking-tighter line-clamp-1">{e.title}</h3>
-                        <div className="flex flex-col gap-2">
-                           <div className="flex items-center gap-2 text-zinc-500 text-[9px] font-black uppercase tracking-widest">
-                             <MapPin className="h-3 w-3 text-[#7c3aed]" /> {e.venue.split('@')[0]}
-                           </div>
-                           <div className="flex items-center gap-2 text-zinc-500 text-[9px] font-black uppercase tracking-widest">
-                             <Users className="h-3 w-3 text-[#7c3aed]" /> {e.availableSeats}/{e.totalSeats} CAPACITY
-                           </div>
-                        </div>
-                        <div className="flex items-center justify-between pt-4 border-t border-white/5">
-                           <span className="font-bold text-sm italic text-[#a78bfa]">₹{e.price} GATE</span>
-                           <div className="flex gap-2">
-                             <Button size="icon" onClick={() => { setEditingEvent(e); setEventFormOpen(true); }} className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 hover:bg-[#7c3aed] transition-colors"><Edit className="h-4 w-4" /></Button>
-                             <Button size="icon" onClick={() => { setEventToDelete(e); setDeleteConfirmOpen(true); }} className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 hover:bg-red-600 transition-colors"><Trash2 className="h-4 w-4" /></Button>
-                           </div>
-                        </div>
-                      </div>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-            </TabsContent>
-
             <TabsContent value="bookings">
-               <Card className="bg-zinc-950 border-white/5 p-8 rounded-[2.5rem] shadow-2xl">
-                  <div className="rounded-2xl border border-white/5 overflow-hidden">
+               <Card className="bg-zinc-950 border-white/5 p-4 sm:p-8 rounded-[2.5rem] shadow-2xl">
+                  <div className="relative mb-8 group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 group-focus-within:text-[#7c3aed] transition-colors" />
+                    <Input placeholder="SEARCH GUEST IDENTITY..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-12 h-14 bg-white/5 border-white/10 rounded-xl font-bold uppercase tracking-tight" />
+                  </div>
+
+                  {/* Desktop Table View */}
+                  <div className="hidden md:block rounded-2xl border border-white/5 overflow-hidden">
                     <Table>
                       <TableHeader className="bg-white/5">
                         <TableRow className="border-white/5">
-                          <TableHead className="font-black uppercase text-[8px] tracking-[0.3em] text-zinc-600 py-6">ID // Guest</TableHead>
-                          <TableHead className="font-black uppercase text-[8px] tracking-[0.3em] text-zinc-600">Protocol // Status</TableHead>
-                          <TableHead className="text-right pr-8 font-black text-[8px] tracking-[0.3em] text-zinc-600">Gate Control</TableHead>
+                          <TableHead className="font-black uppercase text-[8px] tracking-[0.3em] text-zinc-600 py-6">Guest // Order Hash</TableHead>
+                          <TableHead className="font-black uppercase text-[8px] tracking-[0.3em] text-zinc-600">Status</TableHead>
+                          <TableHead className="text-right pr-8 font-black text-[8px] tracking-[0.3em] text-zinc-600">Gate Access</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -291,7 +196,7 @@ export default function AdminPage() {
                           <TableRow key={b.id} className="border-white/5 hover:bg-white/5 transition-colors">
                             <TableCell className="py-6 text-left font-bold uppercase tracking-tighter italic text-white">
                                {b.attendeeDetails.name} 
-                               <span className="block text-[8px] font-black text-zinc-600 not-italic tracking-widest mt-1 uppercase">Order: {b.id.substring(0, 8)}</span>
+                               <span className="block text-[8px] font-black text-zinc-600 not-italic tracking-widest mt-1 uppercase">ID: {b.id.substring(0, 10)}</span>
                             </TableCell>
                             <TableCell className="text-left">
                               {b.checkedIn ? <Badge className="bg-green-500/10 text-green-400 border-green-500/20 font-black text-[8px]">VERIFIED</Badge> : <Badge className="bg-orange-500/10 text-orange-400 border-orange-500/20 font-black text-[8px]">AWAITING</Badge>}
@@ -304,82 +209,36 @@ export default function AdminPage() {
                       </TableBody>
                     </Table>
                   </div>
+
+                  {/* Mobile Card View */}
+                  <div className="md:hidden space-y-4">
+                    {filteredBookings.map((b) => (
+                      <div key={b.id} className="p-5 rounded-2xl bg-white/5 border border-white/10 space-y-4 text-left">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-black text-sm text-white uppercase italic">{b.attendeeDetails.name}</div>
+                            <div className="text-[9px] text-zinc-500 tracking-widest mt-1 uppercase">ORDER #{b.id.substring(0, 8)}</div>
+                          </div>
+                          {b.checkedIn ? 
+                            <Badge className="bg-green-500/10 text-green-400 border-0 font-black text-[8px]">VERIFIED</Badge> : 
+                            <Badge className="bg-orange-500/10 text-orange-400 border-0 font-black text-[8px]">AWAITING</Badge>
+                          }
+                        </div>
+                        {!b.checkedIn && (
+                          <Button onClick={() => handleCheckIn(b.id)} className="w-full h-12 rounded-xl bg-[#7c3aed] text-white font-black text-[10px] uppercase tracking-widest shadow-lg">
+                            VERIFY ENTRY
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                </Card>
             </TabsContent>
           </Tabs>
         </div>
       </div>
 
-      <EventFormModal isOpen={eventFormOpen} onClose={() => { setEventFormOpen(false); setEditingEvent(null); }} onSubmit={(data) => editingEvent ? handleUpdateEvent(editingEvent.id, data) : handleCreateEvent(data)} initialData={editingEvent} />
-      <DeleteConfirmDialog isOpen={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} onConfirm={() => eventToDelete && handleDeleteEvent(eventToDelete.id)} eventTitle={eventToDelete?.title} />
       <QRScanner isOpen={scannerOpen} onScan={handleQRScan} onClose={() => setScannerOpen(false)} />
     </main>
-  )
-}
-
-function EventFormModal({ isOpen, onClose, onSubmit, initialData }: any) {
-  const [formData, setFormData] = useState({ title: "", description: "", date: "", time: "", venue: "", address: "", price: 0, totalSeats: 16, imageUrl: "", category: "OPEN MIC", coordinates: { lat: 20.2806, lng: 85.7716 } })
-  
-  useEffect(() => { 
-    if (initialData) setFormData({ ...initialData }); 
-    else setFormData({ title: "", description: "", date: "", time: "", venue: "", address: "", price: 0, totalSeats: 16, imageUrl: "", category: "OPEN MIC", coordinates: { lat: 20.2806, lng: 85.7716 } }) 
-  }, [initialData, isOpen])
-
-  if (!isOpen) return null
-  
-  return (
-    <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full max-w-2xl bg-zinc-950 border border-white/10 rounded-[3rem] p-12 shadow-2xl">
-        <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-10 text-left">
-           {initialData ? "Refine Experience" : "Spawn Experience"}
-        </h2>
-        <form onSubmit={(e) => { e.preventDefault(); onSubmit({ ...formData, availableSeats: formData.totalSeats }); }} className="space-y-6 text-left">
-          <div className="space-y-2">
-            <span className="text-[9px] font-black uppercase text-zinc-500 tracking-[0.2em] ml-1">Title Registry</span>
-            <Input required placeholder="EXPERIENCE TITLE" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="h-14 bg-white/5 border-white/10 rounded-xl font-bold uppercase tracking-tight" />
-          </div>
-          
-          <div className="grid grid-cols-2 gap-6">
-             <div className="space-y-2">
-                <span className="text-[9px] font-black uppercase text-zinc-500 tracking-[0.2em] ml-1">Gate Pricing</span>
-                <Input required type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) })} className="h-14 bg-white/5 border-white/10 rounded-xl font-bold" />
-             </div>
-             <div className="space-y-2">
-                <span className="text-[9px] font-black uppercase text-zinc-500 tracking-[0.2em] ml-1">Registry Date</span>
-                <Input required value={formData.date} placeholder="Jan 10, 2026" onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="h-14 bg-white/5 border-white/10 rounded-xl font-bold uppercase" />
-             </div>
-          </div>
-
-          <div className="space-y-2">
-             <span className="text-[9px] font-black uppercase text-zinc-500 tracking-[0.2em] ml-1">Asset Source (URL)</span>
-             <Input required placeholder="https://..." value={formData.imageUrl} onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })} className="h-14 bg-white/5 border-white/10 rounded-xl font-bold" />
-          </div>
-
-          <div className="flex gap-4 pt-6">
-             <Button type="button" variant="ghost" onClick={onClose} className="flex-1 rounded-2xl h-16 font-black uppercase text-[10px] tracking-widest hover:bg-white/5">Abort</Button>
-             <Button type="submit" className="flex-1 bg-[#7c3aed] rounded-2xl h-16 font-black uppercase text-[10px] tracking-widest shadow-xl">Initialize Protocol</Button>
-          </div>
-        </form>
-      </motion.div>
-    </div>
-  )
-}
-
-function DeleteConfirmDialog({ isOpen, onClose, onConfirm, eventTitle }: any) {
-  if (!isOpen) return null
-  return (
-    <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4">
-      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-md bg-zinc-950 border border-red-500/20 rounded-[3rem] p-12 text-center space-y-8">
-        <Trash2 className="h-16 w-16 text-red-500 mx-auto animate-pulse" />
-        <div className="space-y-3">
-           <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white">Purge Loop?</h2>
-           <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest leading-loose">Terminating <span className="text-white">"{eventTitle}"</span> will wipe all associated registry entries. This is permanent.</p>
-        </div>
-        <div className="flex gap-4">
-          <Button variant="ghost" onClick={onClose} className="flex-1 h-14 rounded-2xl font-black text-[10px] uppercase tracking-widest">Negate</Button>
-          <Button onClick={onConfirm} className="flex-1 bg-red-600 h-14 rounded-2xl font-black text-[10px] uppercase tracking-widest">Execute Purge</Button>
-        </div>
-      </motion.div>
-    </div>
   )
 }
