@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { 
   Calendar, MapPin, Clock, Users, ArrowLeft, 
-  Navigation as NavIcon, Ticket, Sparkles, Zap, Lock, Timer, Info
+  Navigation as NavIcon, Ticket, Sparkles, Zap, Lock, Timer, Info, Utensils
 } from "lucide-react"
 import Link from "next/link"
 import { getEventById, type Event } from "@/lib/db-utils"
@@ -103,12 +103,12 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
   }
 
   const totalPrice = selectedSeats.length * event.price
+  const isFoodOfferEligible = event.price > 150
 
   return (
     <main className="min-h-screen bg-black text-white selection:bg-violet-500/30 overflow-x-hidden">
       <Navbar />
 
-      {/* Aurora Blurs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#7c3aed]/10 blur-[120px] rounded-full animate-pulse" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#c026d3]/10 blur-[120px] rounded-full" />
@@ -135,7 +135,6 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                   </div>
                 </div>
                 
-                {/* Updated Counter (Days/Hrs/Mins) */}
                 <div className="flex items-center gap-4 p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
                    <Timer className="h-4 w-4 text-violet-500" />
                    <EventCounter targetDate={event.date} />
@@ -145,6 +144,25 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
               <h1 className="text-5xl font-black tracking-tight sm:text-7xl lg:text-8xl bg-gradient-to-b from-white to-zinc-500 bg-clip-text text-transparent italic text-left uppercase leading-[0.9]">
                 {event.title}
               </h1>
+
+              {/* React Bit: Food Offer Banner */}
+              {isFoodOfferEligible && (
+                <motion.div 
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="mt-6 inline-flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-violet-600/20 to-transparent border-l-4 border-violet-500 backdrop-blur-md"
+                >
+                  <div className="h-10 w-10 rounded-full bg-violet-500/20 flex items-center justify-center">
+                    <Utensils className="h-5 w-5 text-violet-400" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-violet-400">Vybb Circle Exclusive</p>
+                    <p className="text-sm font-bold text-white uppercase italic">₹100 Redeemable on Food & Drinks</p>
+                  </div>
+                </motion.div>
+              )}
+
               <p className="mt-8 text-lg leading-relaxed text-zinc-400 max-w-2xl border-l-2 border-violet-500/50 pl-6 text-left lowercase font-medium">
                 {event.description}
               </p>
@@ -182,7 +200,6 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
               )}
             </motion.section>
 
-            {/* Location Bento */}
             <motion.section initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="space-y-6">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between text-left">
                 <div>
@@ -210,7 +227,6 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
               </div>
               <div className="p-8 space-y-6 text-left">
                 
-                {/* Staggered Animated List for Event Info */}
                 <div className="grid grid-cols-1 gap-6">
                   {[
                     { label: 'Date', icon: Calendar, value: event.date },
@@ -233,7 +249,17 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                   ))}
                 </div>
 
-                {/* Booking Call to Action */}
+                {/* Offer Badge in Sidebar */}
+                {isFoodOfferEligible && (
+                  <div className="p-4 rounded-2xl bg-violet-500/10 border border-violet-500/20">
+                    <div className="flex items-center gap-3">
+                      <Utensils className="h-4 w-4 text-violet-400" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-violet-400">Included Perk</span>
+                    </div>
+                    <p className="text-xs font-bold text-white mt-1 uppercase italic">₹100 F&B Credit Included</p>
+                  </div>
+                )}
+
                 <div className="mt-8 hidden lg:block">
                   {user ? (
                     <Link href={selectedSeats.length > 0 ? `/checkout?event=${id}&seats=${selectedSeats.join(",")}` : "#"}>
@@ -248,7 +274,6 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
               </div>
             </motion.div>
 
-            {/* Refund Policy Card */}
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -264,7 +289,6 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
         </div>
       </div>
 
-      {/* Floating Pill Nav for Mobile */}
       <AnimatePresence>
         {selectedSeats.length > 0 && user && (
           <motion.div initial={{ y: 100, x: "-50%", opacity: 0 }} animate={{ y: 0, x: "-50%", opacity: 1 }} exit={{ y: 100, x: "-50%", opacity: 0 }} className="fixed bottom-10 left-1/2 z-50 w-[90%] max-w-[400px] lg:hidden">
