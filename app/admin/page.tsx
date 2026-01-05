@@ -148,6 +148,20 @@ export default function AdminPage() {
     }
   }
 
+  const handlePurgeExperience = async () => {
+    if (!eventToDelete) return
+    const toastId = toast.loading("Purging experience...")
+    try {
+      await deleteEvent(eventToDelete.id)
+      toast.success("Experience purged", { id: toastId })
+      setDeleteConfirmOpen(false)
+      setEventToDelete(null)
+      fetchData()
+    } catch (error) {
+      toast.error("Purge failed", { id: toastId })
+    }
+  }
+
   if (authLoading || checkingAdmin) return (
     <div className="min-h-screen bg-black flex items-center justify-center">
       <Zap className="h-8 w-8 text-[#7c3aed] animate-pulse" />
@@ -187,6 +201,7 @@ export default function AdminPage() {
           </div>
         </div>
 
+        {/* Analytics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           {[
             { label: 'GROSS YIELD', val: `₹${analytics?.totalRevenue?.toLocaleString() || '0'}`, icon: DollarSign },
@@ -295,7 +310,7 @@ export default function AdminPage() {
       <DeleteConfirmDialog 
         isOpen={deleteConfirmOpen} 
         onClose={() => setDeleteConfirmOpen(false)} 
-        onConfirm={handleDeleteEvent} 
+        onConfirm={handlePurgeExperience} 
         eventTitle={eventToDelete?.title} 
       />
       <QRScanner isOpen={scannerOpen} onScan={handleQRScan} onClose={() => setScannerOpen(false)} />
