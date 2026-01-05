@@ -103,7 +103,7 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
   }
 
   const totalPrice = selectedSeats.length * event.price
-  const isFoodOfferEligible = event.price > 150
+  const isFoodOfferEligible = event.price > 149
 
   return (
     <main className="min-h-screen bg-black text-white selection:bg-violet-500/30 overflow-x-hidden">
