@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react"
 import { useAuth } from "@/components/auth-provider"
 import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/navbar"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 import { 
   isAdminUser, 
   getAllBookings, 
@@ -32,10 +32,9 @@ import {
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
-  Users, Calendar, DollarSign, CheckCircle2, Search, Scan, Shield, Clock, Ticket, Zap, 
-  Plus, Edit, Trash2, X, MapPin, Sparkles, Globe, ImageIcon, AlignLeft
+  Users, Calendar, DollarSign, CheckCircle2, Search, Scan, Shield, Ticket, Zap, 
+  Plus, Edit, Trash2, X, MapPin, Sparkles, AlignLeft
 } from "lucide-react"
-import { Skeleton } from "@/components/ui/skeleton"
 import { QRScanner } from "@/components/qr-scanner"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -113,6 +112,21 @@ export default function AdminPage() {
     } catch { toast.error("Error") }
   }
 
+  // FIXED: Added missing delete function
+  const handleDeleteEvent = async () => {
+    if (!eventToDelete) return
+    const toastId = toast.loading("Purging experience registry...")
+    try {
+      await deleteEvent(eventToDelete.id)
+      toast.success("Experience purged", { id: toastId })
+      setDeleteConfirmOpen(false)
+      setEventToDelete(null)
+      fetchData()
+    } catch (error) {
+      toast.error("Purge failure", { id: toastId })
+    }
+  }
+
   const filteredBookings = useMemo(() => {
     return bookings.filter(b => 
       b.attendeeDetails.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -149,20 +163,6 @@ export default function AdminPage() {
     }
   }
 
-  const handleDeleteEventAction = async () => {
-    if (!eventToDelete) return
-    const toastId = toast.loading("Purging experience registry...")
-    try {
-      await deleteEvent(eventToDelete.id)
-      toast.success("Experience purged", { id: toastId })
-      setDeleteConfirmOpen(false)
-      setEventToDelete(null)
-      fetchData()
-    } catch (error) {
-      toast.error("Purge failure", { id: toastId })
-    }
-  }
-
   if (authLoading || checkingAdmin) return (
     <div className="min-h-screen bg-black flex items-center justify-center">
       <Zap className="h-8 w-8 text-[#7c3aed] animate-pulse" />
@@ -173,6 +173,11 @@ export default function AdminPage() {
 
   return (
     <main className="min-h-screen bg-black text-white selection:bg-[#7c3aed]/30 overflow-x-hidden">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#7c3aed]/10 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#c026d3]/10 blur-[120px] rounded-full animate-pulse" />
+      </div>
+
       <Navbar />
 
       <div className="relative pt-32 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -306,7 +311,7 @@ export default function AdminPage() {
       <DeleteConfirmDialog 
         isOpen={deleteConfirmOpen} 
         onClose={() => setDeleteConfirmOpen(false)} 
-        onConfirm={handleDeleteEventAction} 
+        onConfirm={handleDeleteEvent} 
         eventTitle={eventToDelete?.title} 
       />
       
