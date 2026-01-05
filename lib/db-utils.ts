@@ -55,8 +55,19 @@ export interface Booking {
   razorpaySignature: string
   paymentMethod?: string
   paymentDetails?: any
+  checkedIn?: boolean
+  checkedInAt?: any
+  checkedInBy?: string
   createdAt?: any
   updatedAt?: any
+}
+
+export interface AdminUser {
+  email: string
+  approved: boolean
+  role: "admin" | "superadmin"
+  createdAt: any
+  createdBy?: string
 }
 
 // Get all events
@@ -267,6 +278,180 @@ export async function updateBookingStatus(bookingId: string, status: Booking["pa
     console.log(`✅ Booking ${bookingId} status updated to ${status}`)
   } catch (error) {
     console.error("Error updating booking status:", error)
+    throw error
+  }
+}
+
+// Admin functions
+export async function isAdminUser(email: string): Promise<boolean> {
+  try {
+    const adminRef = collection(db, "admins")
+    const q = query(adminRef, where("email", "==", email), where("approved", "==", true))
+    const snapshot = await getDocs(q)
+    return !snapshot.empty
+  } catch (error) {
+    console.error("Error checking admin status:", error)
+    return false
+  }
+}
+
+export async function getAllBookings(): Promise<Booking[]> {
+  try {
+    const bookingsRef = collection(db, "bookings")
+    const q = query(bookingsRef, orderBy("bookingDate", "desc"))
+    const snapshot = await getDocs(q)
+    
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Booking))
+  } catch (error) {
+    console.error("Error fetching all bookings:", error)
+    return []
+  }
+}
+
+export async function getBookingsByEvent(eventId: string): Promise<Booking[]> {
+  try {
+    const bookingsRef = collection(db, "bookings")
+    const q = query(bookingsRef, where("eventId", "==", eventId))
+    const snapshot = await getDocs(q)
+    
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Booking))
+  } catch (error) {
+    console.error("Error fetching bookings by event:", error)
+    return []
+  }
+}
+
+export async function checkInBooking(bookingId: string, adminEmail: string): Promise<void> {
+  try {
+    // Update booking in Firestore
+    const bookingRef = doc(db, "bookings", bookingId)
+    await updateDoc(bookingRef, {
+      checkedIn: true,
+      checkedInAt: serverTimestamp(),
+      checkedInBy: adminEmail,
+      updatedAt: serverTimestamp(),
+    })
+    console.log(`✅ Booking ${bookingId} checked in`)
+  } catch (error) {
+    console.error("Error checking in booking:", error)
+    throw error
+  }
+}
+
+export async function getAnalytics() {
+  try {
+    const [events, bookings] = await Promise.all([
+      getEvents(),
+      getAllBookings()
+    ])
+
+    const totalRevenue = bookings
+      .filter(b => b.paymentStatus === "completed")
+      .reduce((sum, b) => sum + b.amount, 0)
+
+    const totalTicketsSold = bookings
+      .filter(b => b.paymentStatus === "completed")
+      .reduce((sum, b) => sum + b.ticketCount, 0)
+
+    const checkedInCount = bookings.filter(b => b.checkedIn).length
+
+    const eventStats = events.map(event => {
+      const eventBookings = bookings.filter(b => b.eventId === event.id && b.paymentStatus === "completed")
+      const ticketsSold = eventBookings.reduce((sum, b) => sum + b.ticketCount, 0)
+      const revenue = eventBookings.reduce((sum, b) => sum + b.amount, 0)
+      
+      return {
+        eventId: event.id,
+        eventTitle: event.title,
+        eventDate: event.date,
+        ticketsSold,
+        totalSeats: event.totalSeats,
+        availableSeats: event.availableSeats,
+        revenue,
+        checkInRate: eventBookings.length > 0 
+          ? (eventBookings.filter(b => b.checkedIn).length / eventBookings.length) * 100 
+          : 0
+      }
+    })
+
+    return {
+      totalRevenue,
+      totalTicketsSold,
+      totalEvents: events.length,
+      checkedInCount,
+      totalBookings: bookings.length,
+      eventStats
+    }
+  } catch (error) {
+    console.error("Error getting analytics:", error)
+    return null
+  }
+}
+
+// Event Management Functions
+
+export async function createEvent(eventData: Omit<Event, "id">): Promise<string> {
+  try {
+    console.log("🔄 Creating event:", eventData.title)
+
+    const eventDoc = {
+      ...eventData,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }
+
+    const eventRef = await addDoc(collection(db, "events"), eventDoc)
+    console.log("✅ Event created:", eventRef.id)
+    return eventRef.id
+  } catch (error: any) {
+    console.error("❌ Error creating event:", error)
+    throw new Error(`Failed to create event: ${error.message}`)
+  }
+}
+
+export async function updateEvent(eventId: string, eventData: Partial<Event>): Promise<void> {
+  try {
+    console.log("🔄 Updating event:", eventId)
+
+    const eventRef = doc(db, "events", eventId)
+    await updateDoc(eventRef, {
+      ...eventData,
+      updatedAt: serverTimestamp(),
+    })
+
+    console.log("✅ Event updated:", eventId)
+  } catch (error: any) {
+    console.error("❌ Error updating event:", error)
+    throw new Error(`Failed to update event: ${error.message}`)
+  }
+}
+
+export async function deleteEvent(eventId: string): Promise<void> {
+  try {
+    console.log("🔄 Deleting event:", eventId)
+
+    // Check if there are any bookings for this event
+    const bookings = await getBookingsByEvent(eventId)
+    if (bookings.length > 0) {
+      throw new Error("Cannot delete event with existing bookings")
+    }
+
+    const eventRef = doc(db, "events", eventId)
+    await updateDoc(eventRef, {
+      deleted: true,
+      deletedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+
+    console.log("✅ Event marked as deleted:", eventId)
+  } catch (error: any) {
+    console.error("❌ Error deleting event:", error)
     throw error
   }
 }

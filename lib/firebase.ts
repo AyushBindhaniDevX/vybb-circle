@@ -24,6 +24,12 @@ try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
     auth = getAuth(app);
     db = getFirestore(app);
+    
+    // Export db to window for console script access
+    if (typeof window !== 'undefined') {
+      (window as any).db = db;
+    }
+    
     console.log('Firebase initialized successfully');
   } else {
     // For server-side, create mock objects

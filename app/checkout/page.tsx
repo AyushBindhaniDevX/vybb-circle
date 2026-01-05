@@ -148,6 +148,54 @@ function CheckoutContent() {
         ticketCount: currentData.selectedSeats.length,
         ticketPrice: currentData.event.price,
       })
+            // Send ticket confirmation email via Resend
+      try {
+        await fetch('/api/send-ticket-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: currentData.formData.email,
+            customerName: currentData.formData.name,
+            eventTitle: currentData.event.title,
+            eventDate: currentData.event.date,
+            eventTime: currentData.event.time,
+            eventVenue: currentData.event.venue,
+            eventAddress: currentData.event.address,
+            seatNumbers: currentData.selectedSeats,
+            bookingId: bookingId,
+            qrCodeData: bookingId,
+            totalAmount: currentData.selectedSeats.length * currentData.event.price,
+            ticketCount: currentData.selectedSeats.length
+          })
+        })
+      } catch (emailError) {
+        console.error('Failed to send confirmation email:', emailError)
+        // Don't block booking success if email fails
+      }
+            // Send ticket confirmation email via Resend
+      try {
+        await fetch('/api/send-ticket-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: currentData.formData.email,
+            customerName: currentData.formData.name,
+            eventTitle: currentData.event.title,
+            eventDate: currentData.event.date,
+            eventTime: currentData.event.time,
+            eventVenue: currentData.event.venue,
+            eventAddress: currentData.event.address,
+            seatNumbers: currentData.selectedSeats,
+            bookingId: bookingId,
+            qrCodeData: bookingId,
+            totalAmount: currentData.selectedSeats.length * currentData.event.price,
+            ticketCount: currentData.selectedSeats.length
+          })
+        })
+      } catch (emailError) {
+        console.error('Failed to send confirmation email:', emailError)
+        // Don't block booking success if email fails
+      }
       
       toast.success("Experience Confirmed!", { id: "p-verify" })
       setTimeout(() => router.push(`/tickets/${bookingId}`), 1000)

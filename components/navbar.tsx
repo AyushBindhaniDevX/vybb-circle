@@ -6,10 +6,29 @@ import { useAuth } from "@/components/auth-provider"
 import { useRouter } from "next/navigation"
 import { auth } from "@/lib/firebase"
 import { motion } from "framer-motion"
+import { Shield } from "lucide-react"
+import { useEffect, useState } from "react"
+import { isAdminUser } from "@/lib/db-utils"
 
 export const Navbar = () => {
   const { user, loading } = useAuth()
   const router = useRouter()
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [checkingAdmin, setCheckingAdmin] = useState(false)
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (user?.email) {
+        setCheckingAdmin(true)
+        const adminStatus = await isAdminUser(user.email)
+        setIsAdmin(adminStatus)
+        setCheckingAdmin(false)
+      } else {
+        setIsAdmin(false)
+      }
+    }
+    checkAdmin()
+  }, [user])
 
   const handleSignOut = async () => {
     try {
@@ -31,6 +50,12 @@ export const Navbar = () => {
           <div className="hidden md:flex items-center gap-8 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
             <Link href="/events" className="hover:text-white transition-colors">Experiences</Link>
             <Link href="/about" className="hover:text-white transition-colors">Our Story</Link>
+            {isAdmin && (
+              <Link href="/admin" className="hover:text-violet-400 transition-colors flex items-center gap-1">
+                <Shield className="h-3 w-3" />
+                Admin
+              </Link>
+            )}
           </div>
 
           {loading ? (
