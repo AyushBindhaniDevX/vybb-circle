@@ -1,22 +1,23 @@
-// app/events/[id]/page.tsx
 "use client"
 
 import { use, useState, useEffect } from "react"
 import dynamic from "next/dynamic"
+import { motion, AnimatePresence } from "framer-motion"
 import { Navbar } from "@/components/navbar"
 import { SeatSelector } from "@/components/seat-selector"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Calendar, MapPin, Clock, Users, ArrowLeft, Share2, Info, Navigation } from "lucide-react"
+import { 
+  Calendar, MapPin, Clock, Users, ArrowLeft, 
+  Navigation as NavIcon, Ticket, Sparkles, ShieldCheck, Zap 
+} from "lucide-react"
 import Link from "next/link"
 import { getEventById, type Event } from "@/lib/db-utils"
-import { toast } from "sonner"
 
-// Dynamic import for Map to avoid SSR issues with Leaflet
 const DynamicMap = dynamic(() => import("@/components/event-map"), {
   ssr: false,
-  loading: () => <Skeleton className="h-full w-full rounded-xl bg-zinc-900" />,
+  loading: () => <Skeleton className="h-full w-full rounded-[2.5rem] bg-zinc-900" />,
 })
 
 export default function EventDetailsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -27,366 +28,247 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
   const [selectedSeats, setSelectedSeats] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
 
+  // Helper function to format the date correctly
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        weekday: 'short', month: 'long', day: 'numeric', year: 'numeric'
+      })
+    } catch { return dateString }
+  }
+
   useEffect(() => {
     const fetchEvent = async () => {
       try {
         setLoading(true)
-        setError(null)
-        
-        console.log(`🔄 Fetching event with ID: ${id}`)
         const data = await getEventById(id)
-        
-        if (data) {
-          setEvent(data)
-          console.log(`✅ Event loaded: ${data.title}`)
-        } else {
-          setError("Event not found")
-          toast.error("Event not found or has been removed")
-        }
-      } catch (error) {
-        console.error("❌ Error fetching event:", error)
+        if (data) setEvent(data)
+        else setError("Event not found")
+      } catch (err) {
         setError("Failed to load event details")
-        toast.error("Failed to load event details")
       } finally {
         setLoading(false)
       }
     }
-
     fetchEvent()
   }, [id])
 
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString)
-      return date.toLocaleDateString('en-US', {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric'
-      })
-    } catch (error) {
-      return dateString
-    }
-  }
-
-  if (loading) {
+  if (loading || error || !event) {
     return (
-      <div className="min-h-screen bg-black text-white">
-        <Navbar />
-        <div className="mx-auto max-w-7xl px-4 pt-32 sm:px-6 lg:px-8">
-          <div className="animate-pulse space-y-6">
-            <Skeleton className="h-6 w-48 bg-zinc-900" />
-            <div className="mt-8 grid grid-cols-1 gap-12 lg:grid-cols-3">
-              <div className="lg:col-span-2 space-y-4">
-                <Skeleton className="aspect-video w-full rounded-2xl bg-zinc-900" />
-                <Skeleton className="h-64 w-full rounded-2xl bg-zinc-900" />
-              </div>
-              <div>
-                <Skeleton className="h-96 w-full rounded-2xl bg-zinc-900" />
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <motion.div 
+          initial={{ opacity: 0 }} 
+          animate={{ opacity: 1 }} 
+          className="flex flex-col items-center gap-4"
+        >
+          <Sparkles className="h-8 w-8 text-violet-500 animate-pulse" />
+          <p className="text-zinc-500 font-medium tracking-widest uppercase text-xs">Loading Experience</p>
+        </motion.div>
       </div>
     )
   }
 
-  if (error || !event) {
-    return (
-      <div className="min-h-screen bg-black text-white">
-        <Navbar />
-        <div className="mx-auto max-w-7xl px-4 pt-32 sm:px-6 lg:px-8">
-          <div className="text-center py-20">
-            <h1 className="text-3xl font-bold mb-4">
-              {error || "Event Not Found"}
-            </h1>
-            <p className="text-zinc-400 mb-8">
-              The event you're looking for doesn't exist or has been removed.
-            </p>
-            <Link href="/events">
-              <Button variant="outline" className="border-white/10 hover:border-violet-500">
-                Browse All Events
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const totalPrice = selectedSeats.length * event.price
 
   return (
-    <main className="min-h-screen bg-black text-white selection:bg-violet-500/30">
+    <main className="min-h-screen bg-black text-white selection:bg-violet-500/30 overflow-x-hidden">
+      {/* Aurora Background Effect */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-[25%] -left-[10%] w-[70%] h-[70%] bg-violet-600/10 blur-[120px] rounded-full animate-pulse" />
+        <div className="absolute top-[20%] -right-[10%] w-[50%] h-[50%] bg-fuchsia-600/10 blur-[120px] rounded-full" />
+      </div>
+
       <Navbar />
 
-      <div className="mx-auto max-w-7xl px-4 pt-32 pb-24 sm:px-6 lg:px-8">
-        <Link
-          href="/events"
-          className="group mb-8 inline-flex items-center gap-2 text-sm text-zinc-400 transition-colors hover:text-violet-400"
+      <div className="relative z-10 mx-auto max-w-7xl px-4 pt-24 pb-32 sm:px-6 lg:px-8 lg:pt-32">
+        <motion.div
+          initial={{ x: -20, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
         >
-          <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-          Back to Experiences
-        </Link>
+          <Link
+            href="/events"
+            className="group mb-8 inline-flex items-center gap-2 text-sm font-medium text-zinc-400 transition-colors hover:text-violet-400"
+          >
+            <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+            Back to Experiences
+          </Link>
+        </motion.div>
 
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-3">
-          {/* Left Column: Details & Selection */}
-          <div className="space-y-12 lg:col-span-2">
-            <div>
-              <div className="mb-4 flex flex-wrap items-center gap-3">
-                <Badge className="bg-violet-600 font-medium">{event.category}</Badge>
-                <div className="flex items-center gap-1.5 text-sm text-zinc-400">
-                  <Users className="h-4 w-4" />
-                  {event.availableSeats} of {event.totalSeats} seats available
+        <div className="flex flex-col gap-12 lg:flex-row lg:items-start">
+          {/* Main Content: Magic Bento Style */}
+          <div className="flex-1 space-y-12 order-2 lg:order-1">
+            <motion.section 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
+              <div className="mb-6 flex flex-wrap items-center gap-3">
+                <Badge className="bg-violet-600/20 text-violet-400 border-violet-500/30 px-3 py-1 font-semibold uppercase tracking-wider backdrop-blur-md">
+                  {event.category}
+                </Badge>
+                <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-tighter text-zinc-500">
+                  <Users className="h-3.5 w-3.5" />
+                  {event.availableSeats} spots available
                 </div>
               </div>
-              <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">{event.title}</h1>
-              <p className="mt-6 text-lg leading-relaxed text-zinc-400">{event.description}</p>
-            </div>
+              <h1 className="text-4xl font-black tracking-tight sm:text-6xl lg:text-7xl bg-gradient-to-b from-white to-zinc-500 bg-clip-text text-transparent italic">
+                {event.title}
+              </h1>
+              <p className="mt-8 text-lg leading-relaxed text-zinc-400 max-w-2xl border-l-2 border-violet-500/50 pl-6">
+                {event.description}
+              </p>
+            </motion.section>
 
-            <div className="space-y-6">
-              <h2 className="text-2xl font-bold">Select Your Spot</h2>
+            {/* Seat Selector Section */}
+            <motion.section 
+              initial={{ y: 20, opacity: 0 }}
+              whileInView={{ y: 0, opacity: 1 }}
+              viewport={{ once: true }}
+              className="space-y-8 rounded-[2.5rem] border border-white/5 bg-zinc-900/20 p-8 backdrop-blur-xl shadow-2xl"
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold flex items-center gap-3 italic">
+                  <Zap className="h-5 w-5 text-violet-500" />
+                  Select Seats
+                </h2>
+              </div>
               <SeatSelector
                 totalSeats={event.totalSeats}
                 availableSeats={event.availableSeats}
                 pricePerSeat={event.price}
                 onSelectionChange={setSelectedSeats}
               />
-            </div>
+            </motion.section>
 
-            {/* Location Section */}
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold">Find the Venue</h2>
-                <Badge variant="outline" className="border-white/10 text-zinc-400">
-                  {event.venue}
-                </Badge>
+            {/* Venue Section */}
+            <motion.section 
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              className="space-y-6"
+            >
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold italic">The Location</h2>
+                  <p className="text-zinc-500 text-sm font-medium">{event.venue}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  className="rounded-full border-white/10 bg-white/5 hover:bg-violet-600 hover:border-violet-500 transition-all gap-2"
+                  onClick={() => window.open(`http://googleusercontent.com/maps.google.com/?q=${event.coordinates.lat},${event.coordinates.lng}`, '_blank')}
+                >
+                  <NavIcon className="h-4 w-4" />
+                  Directions
+                </Button>
               </div>
               
-              {/* Address Card */}
-              <div className="rounded-xl border border-white/10 bg-zinc-950 p-5">
-                <div className="flex items-start gap-3 mb-4">
-                  <MapPin className="h-5 w-5 text-violet-400 mt-0.5 shrink-0" />
-                  <div className="flex-1">
-                    <h3 className="font-bold text-lg mb-1">{event.venue}</h3>
-                    <p className="text-zinc-400 text-sm leading-relaxed">
-                      {event.address}
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Map Container */}
-                <div className="h-[300px] w-full rounded-lg overflow-hidden border border-white/5">
+              <div className="group relative overflow-hidden rounded-[2.5rem] border border-white/10 bg-zinc-950 p-2 shadow-2xl">
+                <div className="h-[350px] w-full rounded-[2rem] overflow-hidden grayscale contrast-125 transition-all duration-700 group-hover:grayscale-0">
                   <DynamicMap
                     center={[event.coordinates.lat, event.coordinates.lng]}
                     venue={event.venue}
                     address={event.address}
                   />
                 </div>
-                
-                {/* Directions Button */}
-                <div className="mt-4 flex justify-end">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-white/10 hover:border-violet-500/50 hover:bg-violet-500/10 gap-2"
-                    onClick={() => {
-                      const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${event.coordinates.lat},${event.coordinates.lng}&destination_place_id=${encodeURIComponent(event.address)}`
-                      window.open(mapsUrl, '_blank')
-                    }}
-                  >
-                    <Navigation className="h-3.5 w-3.5" />
-                    Get Directions
-                  </Button>
-                </div>
               </div>
-              
-              {/* Instructions */}
-              <div className="flex items-start gap-3 rounded-xl bg-gradient-to-br from-violet-900/10 to-violet-800/5 p-4 border border-violet-500/20">
-                <Info className="mt-0.5 h-5 w-5 text-violet-400 shrink-0" />
-                <div className="text-sm">
-                  <p className="font-semibold text-white mb-2">Entry Instructions</p>
-                  <ul className="space-y-1 text-zinc-400">
-                    <li className="flex items-start gap-2">
-                      <span className="text-violet-400 mt-0.5">•</span>
-                      <span>Please arrive 15 minutes before the start time</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-violet-400 mt-0.5">•</span>
-                      <span>Bring your digital ticket for scanning at entrance</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-violet-400 mt-0.5">•</span>
-                      <span>Valid government ID proof required for entry</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-violet-400 mt-0.5">•</span>
-                      <span>No outside food or drinks allowed</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
+            </motion.section>
           </div>
 
-          {/* Right Column: Checkout Sidebar */}
-          <div className="lg:sticky lg:top-32 h-fit">
-            <div className="rounded-2xl border border-white/10 bg-zinc-950 p-6 shadow-2xl">
-              <img
-                src={event.imageUrl || "/placeholder.svg"}
-                alt={event.title}
-                className="mb-6 aspect-video w-full rounded-xl object-cover border border-white/5"
-              />
-
-              {/* Event Details */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 shrink-0">
-                    <Calendar className="h-4 w-4 text-violet-400" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs uppercase tracking-wider text-zinc-500 font-bold">Date & Time</p>
-                    <p className="text-sm font-medium">
-                      {formatDate(event.date)} • {event.time}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 shrink-0">
-                    <MapPin className="h-4 w-4 text-violet-400" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs uppercase tracking-wider text-zinc-500 font-bold">Venue</p>
-                    <p className="text-sm font-medium line-clamp-1">{event.venue}</p>
-                    <p className="text-xs text-zinc-500 mt-0.5 line-clamp-2">{event.address.split(',')[0]}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 shrink-0">
-                    <Clock className="h-4 w-4 text-violet-400" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs uppercase tracking-wider text-zinc-500 font-bold">Duration</p>
-                    <p className="text-sm font-medium">3 hours</p>
-                  </div>
+          {/* Sidebar: Reflective Card Style */}
+          <aside className="w-full lg:w-[400px] order-1 lg:order-2 lg:sticky lg:top-32">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              className="relative overflow-hidden rounded-[2.5rem] border border-white/10 bg-zinc-950 shadow-2xl"
+            >
+              <div className="relative aspect-[4/5] sm:aspect-video lg:aspect-square">
+                <img 
+                  src={event.imageUrl || "/placeholder.svg"} 
+                  alt={event.title} 
+                  className="h-full w-full object-cover grayscale-[0.3] hover:grayscale-0 transition-all duration-700" 
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
+                <div className="absolute top-6 right-6">
+                   <div className="bg-black/50 backdrop-blur-md border border-white/20 p-2 rounded-2xl">
+                      <ShieldCheck className="h-5 w-5 text-violet-400" />
+                   </div>
                 </div>
               </div>
 
-              <div className="my-6 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-
-              {/* Price Summary */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-zinc-400">Base Price</span>
-                  <span>₹{event.price}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-zinc-400">Platform Fee</span>
-                  <span className="text-green-400">FREE</span>
-                </div>
-                
-                {selectedSeats.length > 0 && (
-                  <>
-                    <div className="my-4 h-px bg-gradient-to-r from-transparent via-white/5 to-transparent" />
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-zinc-400">Selected Seats</span>
-                        <span className="text-sm font-medium">{selectedSeats.length} seat{selectedSeats.length > 1 ? 's' : ''}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {selectedSeats.map((seat) => (
-                          <span 
-                            key={seat} 
-                            className="px-2 py-1 bg-violet-500/10 text-violet-400 rounded text-xs font-medium border border-violet-500/20"
-                          >
-                            {seat}
-                          </span>
-                        ))}
-                      </div>
+              <div className="p-8 space-y-6">
+                <div className="grid grid-cols-1 gap-6">
+                  <div className="flex items-center gap-4 group">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-violet-400 group-hover:bg-violet-600 group-hover:text-white transition-colors">
+                      <Calendar className="h-5 w-5" />
                     </div>
-                    <div className="flex items-center justify-between text-lg font-bold pt-2">
-                      <span>Total Amount</span>
-                      <span className="text-violet-500">₹{selectedSeats.length * event.price}</span>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Date</p>
+                      <p className="text-sm font-bold tracking-tight">{formatDate(event.date)}</p>
                     </div>
-                  </>
-                )}
-              </div>
-
-              {/* CTA Button */}
-              <Link 
-                href={selectedSeats.length > 0 ? `/checkout?event=${id}&seats=${selectedSeats.join(",")}` : "#"}
-                className="block"
-              >
-                <Button
-                  size="lg"
-                  className={`mt-6 w-full h-12 font-bold transition-all ${
-                    selectedSeats.length > 0
-                      ? "bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_30px_rgba(139,92,246,0.5)]"
-                      : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                  }`}
-                  disabled={selectedSeats.length === 0 || event.availableSeats === 0}
-                >
-                  {event.availableSeats === 0 ? (
-                    <span className="flex items-center gap-2">
-                      <span>Sold Out</span>
-                    </span>
-                  ) : selectedSeats.length > 0 ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span>Continue to Booking</span>
-                      <span className="text-sm opacity-90">(₹{selectedSeats.length * event.price})</span>
-                    </span>
-                  ) : (
-                    "Select a Spot"
-                  )}
-                </Button>
-              </Link>
-
-              {/* Share Button */}
-              <Button 
-                variant="ghost" 
-                className="mt-4 w-full text-zinc-500 hover:text-white hover:bg-white/5 gap-2"
-                onClick={() => {
-                  if (navigator.share) {
-                    navigator.share({
-                      title: event.title,
-                      text: `Join me at ${event.title} on ${formatDate(event.date)} at ${event.venue}!`,
-                      url: window.location.href,
-                    })
-                  } else {
-                    navigator.clipboard.writeText(window.location.href)
-                    toast.success("Link copied to clipboard!")
-                  }
-                }}
-              >
-                <Share2 className="h-4 w-4" /> Share with Friends
-              </Button>
-
-              {/* Additional Info */}
-              <div className="mt-6 space-y-3 text-xs text-zinc-500">
-                <div className="flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 rounded-full bg-green-500"></div>
-                  <span>Instant e-ticket delivery</span>
+                  </div>
+                  <div className="flex items-center gap-4 group">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-violet-400 group-hover:bg-violet-600 group-hover:text-white transition-colors">
+                      <Clock className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Time</p>
+                      <p className="text-sm font-bold tracking-tight">{event.time}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 group">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-violet-400 group-hover:bg-violet-600 group-hover:text-white transition-colors">
+                      <Ticket className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Entry</p>
+                      <p className="text-sm font-bold tracking-tight">₹{event.price} <span className="text-zinc-500 text-[10px] font-normal">/ seat</span></p>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 rounded-full bg-green-500"></div>
-                  <span>Easy refund within 24 hours</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 rounded-full bg-green-500"></div>
-                  <span>Secure payment with Razorpay</span>
+
+                <div className="mt-8 hidden lg:block">
+                  <Link href={selectedSeats.length > 0 ? `/checkout?event=${id}&seats=${selectedSeats.join(",")}` : "#"}>
+                    <Button 
+                      disabled={selectedSeats.length === 0} 
+                      className="w-full h-14 bg-white text-black hover:bg-violet-600 hover:text-white font-black rounded-2xl transition-all active:scale-95 shadow-xl disabled:opacity-30"
+                    >
+                      {selectedSeats.length > 0 ? `BOOK ${selectedSeats.length} SEATS` : "SELECT SEATS"}
+                    </Button>
+                  </Link>
                 </div>
               </div>
-
-              {/* Live Payment Notice */}
-              <div className="mt-6 pt-6 border-t border-white/5">
-                <p className="text-xs text-center text-green-400">
-                  🔒 Live Payment Gateway • Powered by Razorpay
-                </p>
-              </div>
-            </div>
-          </div>
+            </motion.div>
+          </aside>
         </div>
       </div>
+
+      {/* Floating Pill Nav (Mobile Booking) */}
+      <AnimatePresence>
+        {selectedSeats.length > 0 && (
+          <motion.div 
+            initial={{ y: 100, x: "-50%", opacity: 0 }}
+            animate={{ y: 0, x: "-50%", opacity: 1 }}
+            exit={{ y: 100, x: "-50%", opacity: 0 }}
+            className="fixed bottom-10 left-1/2 z-50 w-[90%] max-w-[400px] lg:hidden"
+          >
+            <Link href={`/checkout?event=${id}&seats=${selectedSeats.join(",")}`}>
+              <div className="group relative overflow-hidden rounded-full bg-white p-1 shadow-2xl border border-white/20 active:scale-95 transition-transform">
+                <div className="flex items-center justify-between pl-6 pr-2 py-2">
+                  <div className="flex flex-col text-left">
+                    <span className="text-[10px] font-black uppercase text-zinc-500 leading-none mb-1">Subtotal</span>
+                    <span className="text-xl font-black text-black leading-none">₹{totalPrice}</span>
+                  </div>
+                  <div className="bg-violet-600 text-white rounded-full px-6 py-3 font-black text-sm flex items-center gap-2 group-hover:bg-black transition-colors">
+                    CONFIRM
+                    <Zap className="h-4 w-4 fill-current" />
+                  </div>
+                </div>
+              </div>
+            </Link>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   )
 }

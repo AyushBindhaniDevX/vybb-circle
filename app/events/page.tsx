@@ -1,7 +1,7 @@
-// app/events/page.tsx
 "use client"
 
 import { useState, useEffect } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { Navbar } from "@/components/navbar"
 import { SpotlightCard } from "@/components/spotlight-card"
 import { Button } from "@/components/ui/button"
@@ -18,7 +18,9 @@ import {
   Music, 
   Mic2, 
   Users,
-  X
+  X,
+  Sparkles,
+  Zap
 } from "lucide-react"
 import { getEvents, type Event } from "@/lib/db-utils"
 
@@ -61,14 +63,11 @@ export default function EventsPage() {
         setLoading(false)
       }
     }
-
     fetchEvents()
   }, [])
 
   useEffect(() => {
     let filtered = events
-
-    // Apply search filter
     if (searchQuery) {
       filtered = filtered.filter(event =>
         event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -76,21 +75,16 @@ export default function EventsPage() {
         event.category.toLowerCase().includes(searchQuery.toLowerCase())
       )
     }
-
-    // Apply category filter
     if (selectedCategory !== "all") {
       filtered = filtered.filter(event => 
         event.category.toLowerCase().replace(/\s+/g, '-') === selectedCategory
       )
     }
-
-    // Apply location filter
     if (selectedLocation !== "All Venues") {
       filtered = filtered.filter(event => 
         event.venue.toLowerCase().includes(selectedLocation.toLowerCase())
       )
     }
-
     setFilteredEvents(filtered)
   }, [events, searchQuery, selectedCategory, selectedLocation])
 
@@ -103,283 +97,231 @@ export default function EventsPage() {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    })
+      month: 'short', day: 'numeric', year: 'numeric'
+    }).toUpperCase()
   }
 
   return (
-    <main className="min-h-screen bg-black text-white selection:bg-violet-500/30">
+    <main className="min-h-screen bg-black text-white selection:bg-violet-500/30 overflow-x-hidden">
+      {/* Aurora Background Effect */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-[25%] -left-[10%] w-[70%] h-[70%] bg-violet-600/10 blur-[120px] rounded-full animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-fuchsia-600/10 blur-[120px] rounded-full" />
+      </div>
+
       <Navbar />
 
       {/* Hero Section */}
-      <section className="relative border-b border-white/5">
-        <div className="absolute inset-0 bg-gradient-to-b from-violet-900/10 via-transparent to-black" />
-        <div className="relative mx-auto max-w-7xl px-4 pt-32 pb-24 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <Badge className="mb-6 border-violet-500/30 bg-violet-500/10 px-6 py-2 text-xs font-black tracking-[0.2em] text-violet-400 uppercase">
-              Upcoming Experiences
-            </Badge>
-            <h1 className="text-5xl font-bold tracking-tight sm:text-6xl md:text-7xl">
-              Find Your <span className="text-violet-500">Vybb</span>
-            </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-zinc-400">
-              Discover intimate music experiences, open mics, jam sessions, and exclusive live performances.
-              Your next unforgettable night awaits.
-            </p>
-          </div>
-
+      <section className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative z-10 text-center"
+        >
+          <Badge className="mb-6 border-violet-500/30 bg-violet-500/10 px-6 py-2 text-[10px] font-black tracking-[0.3em] text-violet-400 uppercase backdrop-blur-md">
+            <Sparkles className="mr-2 h-3 w-3" /> Discover Upcoming Vybb
+          </Badge>
+          <h1 className="text-5xl font-black italic tracking-tighter sm:text-7xl lg:text-8xl uppercase leading-none italic">
+            Find Your <span className="bg-gradient-to-r from-violet-400 to-fuchsia-500 bg-clip-text text-transparent italic">Pulse</span>
+          </h1>
+          
           {/* Search Bar */}
           <div className="mx-auto mt-12 max-w-2xl">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-500" />
+            <div className="relative group">
+              <Search className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-500 group-focus-within:text-violet-500 transition-colors" />
               <Input
                 type="search"
                 placeholder="Search events, genres, or artists..."
-                className="h-14 rounded-2xl border-white/10 bg-white/5 pl-12 pr-4 text-lg placeholder:text-zinc-500 focus:border-violet-500/50 focus:ring-violet-500/50"
+                className="h-16 rounded-full border-white/10 bg-white/5 pl-14 pr-6 text-lg placeholder:text-zinc-600 focus:border-violet-500/50 focus:ring-violet-500/20 backdrop-blur-xl transition-all"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
+                className={`absolute right-3 top-1/2 -translate-y-1/2 rounded-full h-10 w-10 transition-all ${showFilters ? 'bg-violet-600 text-white' : 'text-zinc-500 hover:text-white'}`}
                 onClick={() => setShowFilters(!showFilters)}
               >
                 <Filter className="h-5 w-5" />
               </Button>
             </div>
           </div>
-        </div>
+        </motion.div>
       </section>
 
       {/* Filters Section */}
-      {showFilters && (
-        <div className="border-b border-white/5 bg-black/50 backdrop-blur-md">
-          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-semibold text-zinc-300">Filter Experiences</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-zinc-500 hover:text-white"
-                onClick={clearFilters}
-              >
-                <X className="h-4 w-4 mr-2" />
-                Clear All
-              </Button>
-            </div>
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden border-y border-white/5 bg-zinc-900/20 backdrop-blur-xl"
+          >
+            <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="text-xl font-bold italic uppercase flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-violet-500" /> Filter
+                </h3>
+                <Button variant="ghost" size="sm" className="text-zinc-500 hover:text-white text-[10px] font-black uppercase tracking-widest" onClick={clearFilters}>
+                  <X className="h-4 w-4 mr-2" /> Clear All
+                </Button>
+              </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Category Filter */}
-              <div>
-                <h4 className="text-sm font-medium text-zinc-400 mb-3">Category</h4>
-                <div className="flex flex-wrap gap-2">
-                  {categories.map((category) => {
-                    const Icon = category.icon
-                    return (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                <div>
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-4">Category</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {categories.map((category) => (
                       <Button
                         key={category.id}
                         variant={selectedCategory === category.id ? "default" : "outline"}
                         size="sm"
-                        className={`rounded-full gap-2 ${
-                          selectedCategory === category.id
-                            ? "bg-violet-600 hover:bg-violet-700 border-violet-600"
-                            : "border-white/10 hover:border-violet-500/50"
+                        className={`rounded-full px-5 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+                          selectedCategory === category.id ? "bg-violet-600 border-violet-600" : "border-white/10 hover:border-violet-500"
                         }`}
                         onClick={() => setSelectedCategory(category.id)}
                       >
-                        <Icon className="h-4 w-4" />
                         {category.label}
                       </Button>
-                    )
-                  })}
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              {/* Location Filter */}
-              <div>
-                <h4 className="text-sm font-medium text-zinc-400 mb-3">Venue</h4>
-                <div className="flex flex-wrap gap-2">
-                  {locations.map((location) => (
-                    <Button
-                      key={location}
-                      variant={selectedLocation === location ? "default" : "outline"}
-                      size="sm"
-                      className={`rounded-full ${
-                        selectedLocation === location
-                          ? "bg-violet-600 hover:bg-violet-700 border-violet-600"
-                          : "border-white/10 hover:border-violet-500/50"
-                      }`}
-                      onClick={() => setSelectedLocation(location)}
-                    >
-                      {location}
-                    </Button>
-                  ))}
+                <div>
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-4">Venue</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {locations.map((location) => (
+                      <Button
+                        key={location}
+                        variant={selectedLocation === location ? "default" : "outline"}
+                        size="sm"
+                        className={`rounded-full px-5 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+                          selectedLocation === location ? "bg-violet-600 border-violet-600" : "border-white/10 hover:border-violet-500"
+                        }`}
+                        onClick={() => setSelectedLocation(location)}
+                      >
+                        {location}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Events Grid */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-12">
+      <section className="relative z-10 mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mb-12 flex items-end justify-between border-b border-white/5 pb-8">
           <div>
-            <h2 className="text-3xl font-bold">
-              {selectedCategory === 'all' ? 'All Experiences' : 
-               categories.find(c => c.id === selectedCategory)?.label}
+            <h2 className="text-3xl font-black italic uppercase tracking-tighter sm:text-5xl">
+              {selectedCategory === 'all' ? 'All Experiences' : categories.find(c => c.id === selectedCategory)?.label}
             </h2>
-            <p className="text-zinc-500 mt-2">
-              {filteredEvents.length} {filteredEvents.length === 1 ? 'event' : 'events'} found
-            </p>
-          </div>
-          
-          <div className="hidden md:flex items-center gap-4">
-            <span className="text-sm text-zinc-500">Sort by:</span>
-            <select className="bg-transparent border border-white/10 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-violet-500">
-              <option value="date">Date</option>
-              <option value="price-low">Price: Low to High</option>
-              <option value="price-high">Price: High to Low</option>
-              <option value="popular">Most Popular</option>
-            </select>
+            <p className="text-zinc-500 font-medium text-sm mt-2">{filteredEvents.length} Experiences Found</p>
           </div>
         </div>
 
         {loading ? (
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
             {[...Array(6)].map((_, i) => (
-              <Skeleton key={i} className="h-[500px] w-full rounded-2xl bg-zinc-900" />
+              <Skeleton key={i} className="h-[500px] w-full rounded-[2.5rem] bg-zinc-900" />
             ))}
           </div>
         ) : filteredEvents.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 rounded-3xl border border-dashed border-white/10 bg-zinc-950/50">
-            <Search className="h-12 w-12 text-zinc-700 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No events found</h3>
-            <p className="text-zinc-500 mb-6">Try adjusting your search or filters</p>
-            <Button 
-              variant="outline" 
-              className="border-white/10 hover:border-violet-500/50"
-              onClick={clearFilters}
-            >
-              Clear Filters
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-32 rounded-[3rem] border border-dashed border-white/10 bg-zinc-950/50">
+            <Search className="h-12 w-12 text-zinc-800 mb-6" />
+            <h3 className="text-xl font-black italic uppercase">No Experiences Found</h3>
+            <Button variant="outline" className="mt-8 rounded-full border-white/10 hover:bg-white hover:text-black transition-all font-black uppercase px-8" onClick={clearFilters}>
+              Clear All Filters
             </Button>
-          </div>
+          </motion.div>
         ) : (
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {filteredEvents.map((event) => (
-              <SpotlightCard key={event.id}>
-                <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl">
-                  <img
-                    src={event.imageUrl || "/placeholder.svg"}
-                    alt={event.title}
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 grayscale-[0.2] group-hover:grayscale-0"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
-                  
-                  <div className="absolute top-4 left-4">
-                    <Badge className="bg-violet-600 font-black italic tracking-wider">
-                      {event.category}
-                    </Badge>
-                  </div>
-                  
-                  <div className="absolute top-4 right-4">
-                    <Badge variant="outline" className="border-white/20 bg-black/50 backdrop-blur-sm">
-                      ₹{event.price}
-                    </Badge>
-                  </div>
-
-                  <div className="absolute inset-0 flex flex-col justify-end p-6">
-                    <h3 className="mb-2 text-2xl font-black italic uppercase tracking-tighter leading-none line-clamp-2">
-                      {event.title}
-                    </h3>
+          <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-3">
+            {filteredEvents.map((event, index) => (
+              <motion.div
+                key={event.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                viewport={{ once: true }}
+              >
+                <SpotlightCard>
+                  <div className="group relative aspect-[4/5] w-full overflow-hidden rounded-[2.5rem] border border-white/5 bg-zinc-950">
+                    <img
+                      src={event.imageUrl || "/placeholder.svg"}
+                      alt={event.title}
+                      className="h-full w-full object-cover grayscale-[0.3] group-hover:grayscale-0 transition-all duration-700 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
                     
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center gap-2 text-xs font-bold tracking-wider text-violet-400 uppercase">
-                        <Calendar className="h-3 w-3" /> 
-                        {formatDate(event.date)}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs font-bold tracking-wider text-zinc-400 uppercase">
-                        <MapPin className="h-3 w-3" /> 
-                        {event.venue}
-                      </div>
+                    {/* Top Badges */}
+                    <div className="absolute top-6 left-6 flex flex-col gap-2">
+                      <Badge className="w-fit bg-violet-600/20 text-violet-400 border-violet-500/30 backdrop-blur-md px-3 py-1 font-black italic uppercase tracking-wider text-[10px]">
+                        {event.category}
+                      </Badge>
                     </div>
                     
-                    <p className="text-sm text-zinc-300 mb-6 line-clamp-2">
-                      {event.description}
-                    </p>
+                    <div className="absolute top-6 right-6">
+                      <Badge variant="outline" className="border-white/20 bg-black/50 backdrop-blur-md px-3 py-1 font-black text-white">
+                        ₹{event.price}
+                      </Badge>
+                    </div>
 
-                    <div className="flex items-center justify-between border-t border-white/10 pt-4">
-                      <div className="text-xs">
-                        <div className="text-zinc-500">Seats Available</div>
-                        <div className="font-bold">
-                          {event.availableSeats}/{event.totalSeats}
+                    {/* Bottom Content */}
+                    <div className="absolute inset-0 flex flex-col justify-end p-8">
+                      <h3 className="mb-4 text-3xl font-black italic uppercase tracking-tighter leading-none group-hover:text-violet-400 transition-colors">
+                        {event.title}
+                      </h3>
+                      
+                      <div className="space-y-2 mb-8">
+                        <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-zinc-500 uppercase">
+                          <Calendar className="h-3 w-3 text-violet-500" /> {formatDate(event.date)}
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-zinc-500 uppercase">
+                          <MapPin className="h-3 w-3 text-violet-500" /> {event.venue}
                         </div>
                       </div>
-                      <Link href={`/events/${event.id}`}>
-                        <Button
-                          size="icon"
-                          className="h-10 w-10 rounded-full bg-white text-black hover:bg-violet-600 hover:text-white transition-all group"
-                        >
-                          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                        </Button>
-                      </Link>
+
+                      <div className="flex items-center justify-between border-t border-white/10 pt-6">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Available</span>
+                          <span className="font-bold text-sm tracking-tighter">
+                            {event.availableSeats} / {event.totalSeats}
+                          </span>
+                        </div>
+                        <Link href={`/events/${event.id}`}>
+                          <Button
+                            size="icon"
+                            className="h-12 w-12 rounded-2xl bg-white text-black hover:bg-violet-600 hover:text-white transition-all active:scale-90"
+                          >
+                            <ArrowRight className="h-6 w-6" />
+                          </Button>
+                        </Link>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </SpotlightCard>
+                </SpotlightCard>
+              </motion.div>
             ))}
           </div>
         )}
-
-        {/* Newsletter CTA */}
-        <div className="mt-24 rounded-3xl border border-white/10 bg-gradient-to-br from-violet-900/20 to-black p-8 md:p-12">
-          <div className="text-center">
-            <h3 className="text-2xl font-bold mb-4">Never Miss a Vybb</h3>
-            <p className="text-zinc-400 max-w-xl mx-auto mb-8">
-              Subscribe to our newsletter and be the first to know about new experiences, 
-              exclusive presales, and artist announcements.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
-              <Input
-                type="email"
-                placeholder="Your email address"
-                className="flex-1 bg-white/5 border-white/10 focus:border-violet-500/50"
-              />
-              <Button className="bg-violet-600 hover:bg-violet-700">
-                Subscribe
-              </Button>
-            </div>
-            <p className="text-xs text-zinc-600 mt-4">
-              We respect your privacy. Unsubscribe at any time.
-            </p>
-          </div>
-        </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-white/5 bg-black px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl flex flex-col items-center justify-between gap-6 md:flex-row">
-          <div className="text-xl font-bold">
+      
+
+      <footer className="relative z-10 border-t border-white/5 bg-black px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl flex flex-col items-center justify-between gap-12 md:flex-row">
+          <div className="text-2xl font-black italic tracking-tighter">
             VYBB <span className="text-violet-500">LIVE</span>
           </div>
-          <div className="flex gap-8 text-sm text-zinc-500">
-            <Link href="/about" className="hover:text-white">
-              Our Story
-            </Link>
-            <Link href="/events" className="hover:text-white">
-              Experiences
-            </Link>
-            <Link href="#" className="hover:text-white">
-              Contact
-            </Link>
-            <Link href="#" className="hover:text-white">
-              FAQ
-            </Link>
+          <div className="flex gap-12 text-[10px] font-black tracking-[0.2em] text-zinc-500 uppercase">
+            <Link href="/about" className="hover:text-white transition-colors">Our Story</Link>
+            <Link href="/events" className="hover:text-white transition-colors">Experiences</Link>
+            <Link href="/profile" className="hover:text-white transition-colors">My Profile</Link>
           </div>
-          <div className="text-sm text-zinc-600">© 2026 Vybb Circle. All rights reserved.</div>
+          <div className="text-[10px] font-bold text-zinc-700 uppercase tracking-widest">© 2026 Vybb Circle.</div>
         </div>
       </footer>
     </main>

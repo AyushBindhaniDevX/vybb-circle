@@ -3,8 +3,7 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Users, Ticket, AlertCircle, Table, X, Chair } from "lucide-react"
+import { Users, Ticket, AlertCircle, X, Armchair } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface SeatSelectorProps {
@@ -42,6 +41,7 @@ export function SeatSelector({
       positions.forEach((position, index) => {
         const seatId = `T${tableId}-${position.charAt(0).toUpperCase()}`
         const seatNumber = (tableId - 1) * 4 + index + 1
+        // Simulation of availability based on provided availableSeats prop
         const isAvailable = seatNumber <= availableSeats
         
         seats.push({
@@ -69,7 +69,6 @@ export function SeatSelector({
       } else if (prev.length < maxSelection) {
         return [...prev, seatId]
       } else {
-        alert(`Maximum ${maxSelection} seats per booking. Please deselect a seat first.`)
         return prev
       }
     })
@@ -102,74 +101,35 @@ export function SeatSelector({
     const tableSeats = seats.filter(seat => seat.tableId === tableId)
 
     return (
-      <div key={tableId} className="relative h-48 w-48">
+      <div key={tableId} className="relative h-40 w-40 sm:h-48 sm:w-48 mx-auto">
         {/* Table Top */}
         <div className="absolute inset-0">
-          {/* Table shadow */}
-          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-zinc-800 to-black shadow-lg" />
-          
-          {/* Table top surface */}
-          <div className="absolute inset-2 rounded-lg bg-gradient-to-br from-zinc-700 to-zinc-800 border border-zinc-600/50 shadow-inner" />
-          
-          {/* Table edge (3D effect) */}
-          <div className="absolute -inset-0.5 rounded-xl border border-zinc-500/20" />
-          
-          {/* Table number */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center text-white font-bold text-sm shadow-md">
-              {tableId}
-            </div>
+          <div className="absolute inset-0 rounded-2xl bg-zinc-800/30 border border-white/5 shadow-xl" />
+          <div className="absolute inset-2 rounded-xl bg-gradient-to-br from-zinc-700 to-zinc-900 border border-white/10 flex items-center justify-center">
+             <span className="text-zinc-500 font-bold text-[10px] tracking-widest">TABLE {tableId}</span>
           </div>
         </div>
 
         {/* Seats around the table */}
         {tableSeats.map((seat) => (
-          <div
-            key={seat.id}
-            className={`absolute ${getSeatPositionStyle(seat.position)}`}
-          >
+          <div key={seat.id} className={`absolute ${getSeatPositionStyle(seat.position)}`}>
             <button
+              type="button"
               onClick={() => handleSeatClick(seat.id, seat.isAvailable)}
               disabled={!seat.isAvailable}
               className={cn(
-                "relative group transition-all duration-200",
-                !seat.isAvailable && "opacity-50 cursor-not-allowed",
-                seat.isSelected && "scale-105"
+                "relative h-11 w-11 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center transition-all active:scale-75",
+                seat.isSelected 
+                  ? "bg-violet-600 text-white shadow-[0_0_15px_rgba(139,92,246,0.5)] border-violet-400" 
+                  : seat.isAvailable 
+                    ? "bg-zinc-900 border border-white/10 text-zinc-400 hover:border-violet-500/50" 
+                    : "bg-zinc-950 text-zinc-700 border-transparent opacity-40 cursor-not-allowed"
               )}
             >
-              {/* Seat base */}
-              <div className={cn(
-                "relative h-12 w-12 rounded-full flex items-center justify-center transform transition-all duration-200",
-                "border shadow-md",
-                seat.isSelected
-                  ? "bg-gradient-to-br from-violet-500 to-purple-600 border-violet-400 scale-105 shadow-[0_0_15px_rgba(139,92,246,0.4)]"
-                  : seat.isAvailable
-                    ? "bg-gradient-to-br from-zinc-700 to-zinc-800 border-zinc-600 hover:border-violet-500 hover:shadow-[0_0_10px_rgba(139,92,246,0.3)]"
-                    : "bg-gradient-to-br from-zinc-800 to-black border-zinc-700"
-              )}>
-                {/* Seat back */}
-                <div className={cn(
-                  "absolute h-6 w-4 rounded-sm transform rotate-90 transition-all",
-                  "border border-t-0",
-                  seat.isSelected
-                    ? "bg-violet-700 border-violet-600 -translate-y-3"
-                    : seat.isAvailable
-                      ? "bg-zinc-600 border-zinc-500 -translate-y-2.5 group-hover:-translate-y-3"
-                      : "bg-zinc-700 border-zinc-600 -translate-y-2.5"
-                )} />
-                
-                {/* Seat label */}
-                <span className={cn(
-                  "text-xs font-bold z-10",
-                  seat.isSelected
-                    ? "text-white"
-                    : seat.isAvailable
-                      ? "text-zinc-300 group-hover:text-white"
-                      : "text-zinc-500"
-                )}>
-                  {seat.label.split('-')[1]}
-                </span>
-              </div>
+              <Armchair className={cn("h-5 w-5", seat.isSelected ? "animate-pulse" : "")} />
+              <span className="absolute -bottom-1 right-0 text-[8px] font-bold bg-black/50 px-1 rounded">
+                {seat.label.split('-')[1]}
+              </span>
             </button>
           </div>
         ))}
@@ -178,97 +138,41 @@ export function SeatSelector({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Venue Layout Container */}
-      <div className="relative rounded-xl border border-white/10 bg-gradient-to-b from-zinc-900 to-black p-4 overflow-hidden">
+      <div className="rounded-3xl border border-white/5 bg-zinc-950/50 p-6 sm:p-10">
         {/* Stage Area */}
-        <div className="relative mb-8">
-          <div className="h-2 w-full max-w-md mx-auto rounded-full bg-gradient-to-r from-violet-500/30 to-purple-500/30" />
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 px-4 py-1 bg-gradient-to-r from-violet-600 to-purple-600 rounded-full">
-            <span className="text-xs font-bold text-white tracking-widest">STAGE</span>
-          </div>
-          <div className="mt-1 text-center">
-            <span className="text-xs text-zinc-500 font-medium">Performance Area</span>
-          </div>
+        <div className="mb-12 text-center">
+          <div className="h-1.5 w-32 mx-auto bg-gradient-to-r from-transparent via-violet-500/50 to-transparent rounded-full mb-3" />
+          <span className="text-[10px] font-bold tracking-[0.3em] text-zinc-500 uppercase">Stage Area</span>
         </div>
 
-        {/* Tables Grid */}
-        <div className="relative z-10 grid grid-cols-2 gap-6 p-4">
-          <div className="space-y-8">
-            {renderTable(1)}
-            {renderTable(2)}
-          </div>
-          <div className="space-y-8">
-            {renderTable(3)}
-            {renderTable(4)}
-          </div>
-        </div>
-
-        {/* Entry/Exit markers */}
-        <div className="absolute bottom-2 left-2 flex items-center gap-2 text-xs text-zinc-500">
-          <div className="h-2 w-4 bg-gradient-to-r from-green-500/40 to-green-400/50 rounded-sm" />
-          <span>Entry</span>
-        </div>
-        <div className="absolute bottom-2 right-2 flex items-center gap-2 text-xs text-zinc-500">
-          <span>Exit</span>
-          <div className="h-2 w-4 bg-gradient-to-r from-red-500/40 to-red-400/50 rounded-sm" />
+        {/* Tables Grid - 1 column on mobile, 2 on desktop */}
+        <div className="grid grid-cols-1 gap-y-20 gap-x-8 sm:grid-cols-2 lg:gap-x-12">
+          {renderTable(1)}
+          {renderTable(2)}
+          {renderTable(3)}
+          {renderTable(4)}
         </div>
       </div>
 
-      {/* Compact Seat Legend */}
-      <div className="grid grid-cols-4 gap-2">
-        <div className="flex flex-col items-center p-2 rounded-lg border border-white/5 bg-white/5">
-          <div className="relative mb-1">
-            <div className="h-6 w-6 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-800 border border-zinc-600" />
-            <div className="absolute h-3 w-2 -top-0.5 left-1/2 -translate-x-1/2 rounded-sm bg-zinc-600 border border-zinc-500" />
-          </div>
-          <span className="text-xs">Available</span>
-        </div>
-
-        <div className="flex flex-col items-center p-2 rounded-lg border border-white/5 bg-white/5">
-          <div className="relative mb-1">
-            <div className="h-6 w-6 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 border border-violet-400" />
-            <div className="absolute h-3 w-2 -top-1 left-1/2 -translate-x-1/2 rounded-sm bg-violet-700 border border-violet-600" />
-          </div>
-          <span className="text-xs">Selected</span>
-        </div>
-
-        <div className="flex flex-col items-center p-2 rounded-lg border border-white/5 bg-white/5">
-          <div className="relative mb-1">
-            <div className="h-6 w-6 rounded-full bg-gradient-to-br from-zinc-800 to-black border border-zinc-700 opacity-50" />
-            <div className="absolute h-3 w-2 -top-0.5 left-1/2 -translate-x-1/2 rounded-sm bg-zinc-700 border border-zinc-600 opacity-50" />
-          </div>
-          <span className="text-xs">Booked</span>
-        </div>
-
-        <div className="flex flex-col items-center p-2 rounded-lg border border-white/5 bg-white/5">
-          <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-zinc-700 to-zinc-800 border border-zinc-600 flex items-center justify-center mb-1">
-            <span className="text-xs font-bold text-white">T</span>
-          </div>
-          <span className="text-xs">Table</span>
-        </div>
-      </div>
-
-      {/* Selection Summary */}
-      <div className="rounded-xl border border-white/10 bg-gradient-to-b from-zinc-900/50 to-black/50 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center">
-              <Ticket className="h-4 w-4 text-white" />
+      {/* Selection Summary Card */}
+      <div className="rounded-2xl bg-zinc-900/40 border border-white/10 p-5 backdrop-blur-sm">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/20 text-violet-400">
+                <Ticket className="h-4 w-4" />
             </div>
             <div>
-              <h3 className="font-bold text-sm">Your Selection</h3>
-              <p className="text-xs text-zinc-500">
-                {selectedSeats.length} of {maxSelection} seats
-              </p>
+                <h3 className="text-sm font-bold text-white">Selected Seats</h3>
+                <p className="text-[10px] text-zinc-500 uppercase tracking-wider">{selectedSeats.length} of {maxSelection} Max</p>
             </div>
           </div>
-          
           {selectedSeats.length > 0 && (
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 px-2 text-xs text-zinc-500 hover:text-white hover:bg-white/5"
+              className="h-8 text-xs text-zinc-400 hover:text-white hover:bg-white/5"
               onClick={clearSelection}
             >
               <X className="h-3 w-3 mr-1" />
@@ -278,75 +182,41 @@ export function SeatSelector({
         </div>
 
         {selectedSeats.length === 0 ? (
-          <div className="text-center py-4 border border-dashed border-white/10 rounded-lg">
-            <AlertCircle className="h-8 w-8 text-zinc-600 mx-auto mb-2" />
-            <p className="text-sm text-zinc-400">Select seats from the layout</p>
+          <div className="flex flex-col items-center justify-center py-6 border border-dashed border-white/5 rounded-xl bg-black/20">
+            <AlertCircle className="h-6 w-6 text-zinc-700 mb-2" />
+            <p className="text-xs text-zinc-500">Tap a seat above to select</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {/* Selected seats display */}
-            <div className="grid grid-cols-4 gap-2">
-              {selectedSeats.map(seatId => {
-                const seat = seats.find(s => s.id === seatId)
-                return (
-                  <div
-                    key={seatId}
-                    className="relative p-2 rounded-lg border border-violet-500/30 bg-gradient-to-br from-violet-900/20 to-violet-800/10"
+          <div className="space-y-5">
+            <div className="flex flex-wrap gap-2">
+              {selectedSeats.map(id => (
+                <div 
+                    key={id} 
+                    className="group bg-violet-500/10 border border-violet-500/20 pl-3 pr-1.5 py-1.5 rounded-full text-xs font-semibold text-violet-300 flex items-center gap-2 animate-in fade-in zoom-in-95 duration-200"
+                >
+                  {id}
+                  <button 
+                    onClick={() => handleSeatClick(id, true)}
+                    className="h-5 w-5 rounded-full bg-violet-500/20 flex items-center justify-center hover:bg-violet-500/40 transition-colors"
                   >
-                    <div className="absolute top-1 right-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5 rounded-full bg-white/10 hover:bg-white/20"
-                        onClick={() => handleSeatClick(seatId, true)}
-                      >
-                        <X className="h-2 w-2" />
-                      </Button>
-                    </div>
-                    
-                    <div className="text-center">
-                      <div className="text-xs font-medium">{seat?.label}</div>
-                      <div className="text-[10px] text-violet-300">Table {seat?.tableId}</div>
-                    </div>
-                  </div>
-                )
-              })}
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
             </div>
 
-            {/* Price breakdown */}
-            <div className="rounded-lg border border-white/5 bg-black/50 p-3">
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">Seat Price</span>
-                  <span>₹{pricePerSeat}</span>
+            <div className="pt-4 border-t border-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-zinc-400 text-xs">
+                    <Users className="h-3 w-3" />
+                    <span>{availableSeats} seats total available</span>
                 </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">Quantity</span>
-                  <span>{selectedSeats.length} seats</span>
+                <div className="text-right">
+                    <span className="text-[10px] text-zinc-500 block uppercase">Subtotal</span>
+                    <span className="text-lg font-bold text-white">₹{pricePerSeat * selectedSeats.length}</span>
                 </div>
-                
-                <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                
-                <div className="flex items-center justify-between font-bold">
-                  <span>Total</span>
-                  <span className="text-lg text-violet-400">₹{pricePerSeat * selectedSeats.length}</span>
-                </div>
-              </div>
             </div>
           </div>
         )}
-
-        {/* Footer info */}
-        <div className="mt-4 pt-3 border-t border-white/5">
-          <div className="flex items-center justify-between text-xs text-zinc-500">
-            <div className="flex items-center gap-1">
-              <Users className="h-3 w-3" />
-              <span>{availableSeats} seats available</span>
-            </div>
-            <span>Max {maxSelection} per booking</span>
-          </div>
-        </div>
       </div>
     </div>
   )

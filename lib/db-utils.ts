@@ -106,52 +106,53 @@ export async function getEventById(id: string): Promise<Event | null> {
 }
 
 // lib/db-utils.ts - Update getBookingsByUserId function
+// lib/db-utils.ts
+
 export async function getBookingsByUserId(userId: string): Promise<Booking[]> {
   try {
-    console.log(`🔄 Fetching bookings for user: ${userId}`)
+    console.log(`🔄 Fetching bookings for user: ${userId}`);
     
-    const bookingsRef = collection(db, "bookings")
+    const bookingsRef = collection(db, "bookings");
     
+    // Step 1: Attempt the most efficient query
     try {
-      // Try with the indexed query first
       const q = query(
         bookingsRef, 
-        where("userId", "==", userId),
-        orderBy("bookingDate", "desc")
-      )
-      const snapshot = await getDocs(q)
+        where("userId", "==", userId)
+        // Note: Removed orderBy here to prevent "failed-precondition" errors 
+        // if the manual index isn't created yet in Firebase Console.
+      );
+      
+      const snapshot = await getDocs(q);
       
       const bookings = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      } as Booking))
+      } as Booking));
+
+      // Step 2: Sort manually in code to guarantee results show up
+      const sortedBookings = bookings.sort((a, b) => {
+        const dateA = new Date(a.bookingDate || a.createdAt?.toDate() || 0).getTime();
+        const dateB = new Date(b.bookingDate || b.createdAt?.toDate() || 0).getTime();
+        return dateB - dateA; // Newest first
+      });
       
-      console.log(`✅ Found ${bookings.length} bookings for user`)
-      return bookings
-    } catch (error: any) {
-      // If index error, fallback to simple query
-      if (error.code === 'failed-precondition' && error.message.includes('index')) {
-        console.warn('⚠️ Index not ready, using fallback query')
-        
-        // Fallback: Get all bookings and filter in memory
-        const allBookingsSnapshot = await getDocs(bookingsRef)
-        const allBookings = allBookingsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as Booking))
-        
-        const userBookings = allBookings
-          .filter(booking => booking.userId === userId)
-          .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime())
-        
-        console.log(`✅ Found ${userBookings.length} bookings (fallback mode)`)
-        return userBookings
-      }
-      throw error // Re-throw other errors
+      console.log(`✅ Successfully loaded ${sortedBookings.length} tickets`);
+      return sortedBookings;
+
+    } catch (innerError: any) {
+      console.warn("⚠️ Primary query failed, attempting global fallback:", innerError.message);
+      
+      // Step 3: Global Fallback - Get all and filter (Use only for small datasets)
+      const allSnapshot = await getDocs(bookingsRef);
+      return allSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as Booking))
+        .filter(b => b.userId === userId)
+        .sort((a, b) => new Date(b.bookingDate || 0).getTime() - new Date(a.bookingDate || 0).getTime());
     }
   } catch (error) {
-    console.error("❌ Error fetching bookings:", error)
-    return []
+    console.error("❌ Critical error fetching bookings:", error);
+    return [];
   }
 }
 // Create booking with real payment data

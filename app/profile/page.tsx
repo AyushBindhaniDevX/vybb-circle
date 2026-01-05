@@ -1,13 +1,15 @@
-// app/profile/page.tsx (Updated)
 "use client"
 
 import { Navbar } from "@/components/navbar"
 import { ProtectedRoute } from "@/components/protected-route"
 import { useEffect, useState } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { getBookingsByUserId, getEventById } from "@/lib/db-utils"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Mail, Calendar, MapPin, ExternalLink, LogOut } from "lucide-react"
+import { 
+  Mail, Calendar, MapPin, LogOut, 
+  Sparkles, User, Ticket, ArrowRight 
+} from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/components/auth-provider"
 import { auth } from "@/lib/firebase"
@@ -17,127 +19,148 @@ function ProfileContent() {
   const [bookings, setBookings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (!user) return
+  // Inside your profile/page.tsx useEffect
 
-    const fetchHistory = async () => {
-      try {
-        const userBookings = await getBookingsByUserId(user.uid)
-        const enrichedBookings = await Promise.all(
-          userBookings.map(async (b) => {
-            const event = await getEventById(b.eventId)
-            return { ...b, event }
-          }),
-        )
-        setBookings(enrichedBookings)
-      } catch (error) {
-        console.error("Error fetching history:", error)
-      } finally {
-        setLoading(false)
-      }
+useEffect(() => {
+  if (!user) return;
+
+  const fetchHistory = async () => {
+    try {
+      setLoading(true);
+      // This calls our updated, more resilient function
+      const userBookings = await getBookingsByUserId(user.uid);
+      
+      const enrichedBookings = await Promise.all(
+        userBookings.map(async (b) => {
+          // Fetch the event details for each booking to get images/titles
+          const event = await getEventById(b.eventId);
+          return { ...b, event };
+        }),
+      );
+      
+      setBookings(enrichedBookings);
+    } catch (error) {
+      console.error("Profile page load error:", error);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    fetchHistory()
-  }, [user])
+  fetchHistory();
+}, [user]);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600"></div>
+        <Sparkles className="h-8 w-8 text-violet-500 animate-pulse" />
       </div>
     )
   }
 
   return (
     <main className="min-h-screen bg-black text-white selection:bg-violet-500/30">
+      {/* Aurora Background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-violet-600/10 blur-[120px] rounded-full animate-pulse" />
+      </div>
+
       <Navbar />
 
-      <div className="mx-auto max-w-7xl px-4 pt-32 pb-24 sm:px-6 lg:px-8">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 pt-32 pb-24 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-4">
-          {/* Sidebar Info */}
-          <div className="lg:col-span-1 space-y-8">
-            <div className="flex flex-col items-center text-center p-8 rounded-3xl border border-white/10 bg-zinc-950">
-              <div className="h-24 w-24 rounded-full bg-violet-600 flex items-center justify-center text-3xl font-bold mb-4 shadow-[0_0_40px_rgba(139,92,246,0.3)]">
+          
+          {/* User Sidebar - Cleaned version without levels */}
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="lg:col-span-1"
+          >
+            <div className="p-8 rounded-[2.5rem] border border-white/10 bg-zinc-950 shadow-2xl text-center">
+              <div className="h-24 w-24 rounded-full bg-gradient-to-br from-violet-600 to-fuchsia-600 mx-auto flex items-center justify-center text-3xl font-black mb-6 border-4 border-black shadow-xl">
                 {user?.displayName?.[0] || user?.email?.[0].toUpperCase()}
               </div>
-              <h2 className="text-xl font-bold">{user?.displayName || "Vybb Member"}</h2>
-              <p className="text-sm text-zinc-500 flex items-center gap-2 mt-1">
-                <Mail className="h-3 w-3" /> {user?.email}
+              
+              <h2 className="text-2xl font-black italic tracking-tight">{user?.displayName || "Member"}</h2>
+              <p className="text-xs text-zinc-500 flex items-center justify-center gap-2 mt-2">
+                <Mail className="h-3.5 w-3.5" /> {user?.email}
               </p>
+
+              <div className="my-8 h-px bg-white/5" />
+
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/5 mb-8">
+                <span className="block text-2xl font-black">{bookings.length}</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Total Tickets</span>
+              </div>
 
               <Button
                 variant="outline"
-                className="mt-8 w-full border-white/10 bg-white/5 hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/50"
+                className="w-full h-12 rounded-2xl border-white/10 bg-white/5 hover:bg-red-500/10 hover:text-red-500"
                 onClick={() => auth.signOut()}
               >
-                <LogOut className="mr-2 h-4 w-4" /> Sign Out
+                <LogOut className="mr-2 h-4 w-4" /> SIGN OUT
               </Button>
             </div>
-          </div>
+          </motion.div>
 
-          {/* Main Content: Booking History */}
+          {/* Main Tickets Area */}
           <div className="lg:col-span-3">
-            <h1 className="text-3xl font-extrabold tracking-tight mb-8">Experience History</h1>
+            <h1 className="text-4xl font-black italic mb-8 tracking-tighter uppercase">My Tickets</h1>
 
             {bookings.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 rounded-3xl border border-dashed border-white/10 bg-zinc-950/50">
-                <Calendar className="h-12 w-12 text-zinc-700 mb-4" />
-                <p className="text-zinc-500">No experiences booked yet.</p>
-                <Link href="/events" className="mt-4 text-violet-400 hover:underline">
-                  Discover Events
+              <div className="py-24 rounded-[2.5rem] border border-dashed border-white/10 bg-zinc-950/50 text-center">
+                <Ticket className="h-12 w-12 text-zinc-800 mx-auto mb-4" />
+                <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs">No active tickets found</p>
+                <Link href="/events">
+                  <Button className="mt-6 bg-white text-black hover:bg-violet-600 rounded-full px-8 font-black">
+                    EXPLORE EVENTS
+                  </Button>
                 </Link>
               </div>
             ) : (
               <div className="grid gap-6">
-                {bookings.map((booking) => (
-                  <div
-                    key={booking.id}
-                    className="group flex flex-col md:flex-row gap-6 p-6 rounded-2xl border border-white/10 bg-zinc-950 hover:border-violet-500/30 transition-all"
-                  >
-                    <div className="h-32 w-full md:w-32 shrink-0 overflow-hidden rounded-xl bg-zinc-900">
-                      {booking.event?.imageUrl && (
+                <AnimatePresence>
+                  {bookings.map((booking, index) => (
+                    <motion.div
+                      key={booking.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="group relative flex flex-col md:flex-row gap-6 p-6 rounded-[2rem] border border-white/5 bg-zinc-950/40 hover:border-violet-500/30 transition-all shadow-xl backdrop-blur-sm"
+                    >
+                      <div className="h-32 w-full md:w-32 shrink-0 overflow-hidden rounded-2xl border border-white/5">
                         <img
-                          src={booking.event.imageUrl || "/placeholder.svg"}
-                          className="h-full w-full object-cover"
+                          src={booking.event?.imageUrl || "/placeholder.svg"}
+                          className="h-full w-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all duration-500"
                           alt=""
                         />
-                      )}
-                    </div>
-                    <div className="flex-1 flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <Badge className="bg-violet-600/10 text-violet-400 border border-violet-500/20">
-                            {booking.event?.category || "Event"}
-                          </Badge>
-                          <span className="text-xs text-zinc-500">#{booking.id?.substring(0, 8)}</span>
-                        </div>
-                        <h3 className="text-xl font-bold mb-1 group-hover:text-violet-400 transition-colors">
-                          {booking.event?.title || "Unknown Event"}
-                        </h3>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-zinc-500">
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="h-4 w-4" /> {booking.event?.date}
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <MapPin className="h-4 w-4" /> {booking.event?.venue}
-                          </div>
-                        </div>
                       </div>
 
-                      <div className="mt-4 flex items-center justify-between pt-4 border-t border-white/5">
-                        <div className="text-sm">
-                          <span className="text-zinc-500">Seats: </span>
-                          <span className="text-white font-medium">{booking.seatNumbers?.join(", ") || "N/A"}</span>
+                      <div className="flex-1 flex flex-col justify-between">
+                        <div>
+                          <h3 className="text-2xl font-black italic tracking-tight group-hover:text-violet-400 transition-colors">
+                            {booking.event?.title || "Event Name"}
+                          </h3>
+                          <div className="flex flex-wrap gap-4 mt-2 text-xs font-bold text-zinc-500 uppercase tracking-tighter">
+                            <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-violet-500" /> {booking.event?.date}</span>
+                            <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-violet-500" /> {booking.event?.venue}</span>
+                          </div>
                         </div>
-                        <Link href={`/tickets/${booking.id}`}>
-                          <Button size="sm" variant="ghost" className="text-violet-400 hover:text-violet-300 gap-2">
-                            View Ticket <ExternalLink className="h-3.5 w-3.5" />
-                          </Button>
-                        </Link>
+
+                        <div className="mt-6 flex items-center justify-between pt-4 border-t border-white/5">
+                          <div className="flex flex-col">
+                            <span className="text-[8px] font-black uppercase text-zinc-600 tracking-widest">Seats</span>
+                            <span className="text-sm font-bold">{booking.seatNumbers?.join(", ")}</span>
+                          </div>
+                          <Link href={`/tickets/${booking.id}`}>
+                            <Button className="rounded-full bg-violet-600 hover:bg-white hover:text-black font-black text-[10px] tracking-widest h-9 px-6">
+                              VIEW TICKET <ArrowRight className="h-3 w-3 ml-2" />
+                            </Button>
+                          </Link>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </div>
             )}
           </div>
