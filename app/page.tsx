@@ -109,19 +109,7 @@ export default function Home() {
               Experience
             </span>
           </h1>
-          
-          {/* Counter Bit Integration */}
-          <div className="mt-4 flex items-center justify-center gap-8 text-zinc-500 font-black italic uppercase tracking-tighter">
-            <div className="flex flex-col">
-              <span className="text-3xl text-white"><RollingCounter value={1200} /></span>
-              <span className="text-[10px] tracking-widest">Admissions</span>
-            </div>
-            <div className="w-px h-8 bg-white/10" />
-            <div className="flex flex-col">
-              <span className="text-3xl text-white"><RollingCounter value={45} /></span>
-              <span className="text-[10px] tracking-widest">Artists</span>
-            </div>
-          </div>
+        
 
           <div className="mt-12 flex flex-wrap justify-center gap-4">
             <Link href="/events">
