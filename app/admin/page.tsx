@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo, useRef } from "react"
+import { useEffect, useState, useMemo, useRef, useCallback } from "react"
 import { useAuth } from "@/components/auth-provider"
 import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/navbar"
@@ -28,7 +28,7 @@ import {
   Plus, Edit, Trash2, X, MapPin, Sparkles, Globe, ImageIcon, AlignLeft,
   Download, Filter, User, Mail, BarChart3, TrendingUp,
   QrCode, Eye, EyeOff, RefreshCw, AlertCircle, Home, Music, Goal, Gamepad2, 
-  Crown, Package, Tag
+  Crown, Package, Tag, Lock, Fingerprint, Key, ChevronRight, ArrowRight, Loader2
 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { QRScanner } from "@/components/qr-scanner"
@@ -74,6 +74,16 @@ const exportToCSV = (data: any[], filename: string) => {
   toast.success("Export completed successfully")
 }
 
+// Security configuration
+const SECURITY_CONFIG = {
+  STAFF_PASSWORD: "AYU269",
+  MAX_ATTEMPTS: 3,
+  LOCKOUT_TIME: 30000, // 30 seconds in milliseconds
+  SESSION_DURATION: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
+  SESSION_KEY: "vybb_staff_session",
+  INPUT_TIMEOUT: 1500 // Time to reset input after barcode scan
+}
+
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
@@ -94,19 +104,261 @@ export default function AdminPage() {
   const [filter, setFilter] = useState("all") // all, checked-in, pending
   const [activeTab, setActiveTab] = useState("manage-events")
   const [eventStats, setEventStats] = useState<Record<string, any>>({})
+  
+  // Security state
+  const [isLocked, setIsLocked] = useState(true)
+  const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [attempts, setAttempts] = useState(0)
+  const [isLockedOut, setIsLockedOut] = useState(false)
+  const [lockoutTimer, setLockoutTimer] = useState(0)
+  const [securityScannerOpen, setSecurityScannerOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [barcodeInput, setBarcodeInput] = useState("")
+  const [inputTimeout, setInputTimeout] = useState<NodeJS.Timeout | null>(null)
 
+  // Refs
+  const passwordRef = useRef<HTMLInputElement>(null)
+  const barcodeInputRef = useRef<HTMLInputElement>(null)
+
+  // Check for existing valid session
+  useEffect(() => {
+    const checkSession = () => {
+      try {
+        const session = localStorage.getItem(SECURITY_CONFIG.SESSION_KEY)
+        if (session) {
+          const { timestamp, expires } = JSON.parse(session)
+          const now = Date.now()
+          if (now >= timestamp && now <= expires) {
+            setIsLocked(false)
+            return true
+          } else {
+            localStorage.removeItem(SECURITY_CONFIG.SESSION_KEY)
+          }
+        }
+      } catch (error) {
+        console.error("Error checking session:", error)
+      }
+      return false
+    }
+
+    if (!authLoading && user) {
+      const hasValidSession = checkSession()
+      if (!hasValidSession) {
+        setIsLocked(true)
+      }
+    }
+  }, [authLoading, user])
+
+  // Handle lockout timer
+  useEffect(() => {
+    let interval: NodeJS.Timeout
+    if (isLockedOut && lockoutTimer > 0) {
+      interval = setInterval(() => {
+        setLockoutTimer(prev => {
+          if (prev <= 1000) {
+            setIsLockedOut(false)
+            setAttempts(0)
+            return 0
+          }
+          return prev - 1000
+        })
+      }, 1000)
+    }
+    return () => clearInterval(interval)
+  }, [isLockedOut, lockoutTimer])
+
+  // Barcode scanner input handling
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle if we're on lock screen
+      if (!isLocked) return
+      
+      // Ignore special keys
+      if (e.key === "Shift" || e.key === "Control" || e.key === "Alt" || e.key === "Meta") return
+      
+      // Clear input on Escape
+      if (e.key === "Escape") {
+        setBarcodeInput("")
+        if (inputTimeout) clearTimeout(inputTimeout)
+        return
+      }
+      
+      // Handle Enter key
+      if (e.key === "Enter") {
+        e.preventDefault()
+        if (barcodeInput.length > 0) {
+          handleBarcodeSubmit(barcodeInput)
+          setBarcodeInput("")
+        } else if (password.length > 0) {
+          handlePasswordSubmit()
+        }
+        return
+      }
+      
+      // Handle backspace
+      if (e.key === "Backspace") {
+        setBarcodeInput(prev => prev.slice(0, -1))
+        return
+      }
+      
+      // Handle alphanumeric input (barcode scanners typically send text quickly)
+      if (e.key.length === 1) {
+        setBarcodeInput(prev => {
+          const newInput = prev + e.key.toUpperCase()
+          
+          // Clear any existing timeout
+          if (inputTimeout) clearTimeout(inputTimeout)
+          
+          // Set timeout to auto-submit (simulating barcode scanner behavior)
+          const timeout = setTimeout(() => {
+            if (newInput.length >= 3) { // Minimum length for barcode
+              handleBarcodeSubmit(newInput)
+            }
+          }, SECURITY_CONFIG.INPUT_TIMEOUT)
+          
+          setInputTimeout(timeout)
+          return newInput
+        })
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+      if (inputTimeout) clearTimeout(inputTimeout)
+    }
+  }, [isLocked, barcodeInput, password, inputTimeout])
+
+  // Focus password input on mount
+  useEffect(() => {
+    if (isLocked && passwordRef.current && !isLockedOut) {
+      passwordRef.current.focus()
+    }
+  }, [isLocked, isLockedOut])
+
+  const createSession = () => {
+    const timestamp = Date.now()
+    const expires = timestamp + SECURITY_CONFIG.SESSION_DURATION
+    const session = { timestamp, expires }
+    localStorage.setItem(SECURITY_CONFIG.SESSION_KEY, JSON.stringify(session))
+  }
+
+  const handlePasswordSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (!password.trim() || isLockedOut || isSubmitting) return
+    
+    setIsSubmitting(true)
+    
+    // Simulate network delay for security
+    await new Promise(resolve => setTimeout(resolve, 300))
+    
+    if (password.toUpperCase() === SECURITY_CONFIG.STAFF_PASSWORD) {
+      createSession()
+      setIsLocked(false)
+      setPassword("")
+      setAttempts(0)
+      toast.success("✓ Access granted. Welcome to VYBB Command.")
+    } else {
+      const newAttempts = attempts + 1
+      setAttempts(newAttempts)
+      
+      if (newAttempts >= SECURITY_CONFIG.MAX_ATTEMPTS) {
+        setIsLockedOut(true)
+        setLockoutTimer(SECURITY_CONFIG.LOCKOUT_TIME)
+        toast.error(`🚫 Too many failed attempts. System locked for 30 seconds.`)
+      } else {
+        toast.error(`✗ Incorrect password. ${SECURITY_CONFIG.MAX_ATTEMPTS - newAttempts} attempts remaining.`)
+      }
+      setPassword("")
+      
+      // Shake animation feedback
+      if (passwordRef.current) {
+        passwordRef.current.classList.add("animate-shake")
+        setTimeout(() => {
+          passwordRef.current?.classList.remove("animate-shake")
+        }, 500)
+      }
+    }
+    
+    setIsSubmitting(false)
+  }
+
+  const handleBarcodeSubmit = async (barcode: string) => {
+    if (isLockedOut || isSubmitting) return
+    
+    setIsSubmitting(true)
+    
+    // Clean the scanned data
+    const cleanedBarcode = barcode.trim().toUpperCase()
+    
+    // Simulate processing delay
+    await new Promise(resolve => setTimeout(resolve, 300))
+    
+    if (cleanedBarcode === SECURITY_CONFIG.STAFF_PASSWORD) {
+      createSession()
+      setIsLocked(false)
+      setBarcodeInput("")
+      setAttempts(0)
+      toast.success("✓ Barcode verified. Welcome to VYBB Command.")
+    } else {
+      const newAttempts = attempts + 1
+      setAttempts(newAttempts)
+      
+      if (newAttempts >= SECURITY_CONFIG.MAX_ATTEMPTS) {
+        setIsLockedOut(true)
+        setLockoutTimer(SECURITY_CONFIG.LOCKOUT_TIME)
+        toast.error("🚫 Invalid barcode. System locked for 30 seconds.")
+      } else {
+        toast.error(`✗ Invalid barcode. ${SECURITY_CONFIG.MAX_ATTEMPTS - newAttempts} attempts remaining.`)
+      }
+      setBarcodeInput("")
+    }
+    
+    setIsSubmitting(false)
+  }
+
+  const handleSecurityQRScan = (data: string) => {
+    setSecurityScannerOpen(false)
+    handleBarcodeSubmit(data)
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem(SECURITY_CONFIG.SESSION_KEY)
+    setIsLocked(true)
+    setPassword("")
+    setBarcodeInput("")
+    setAttempts(0)
+    toast.info("🔒 Logged out from staff panel.")
+  }
+
+  // Check admin access
   useEffect(() => {
     const checkAdminAccess = async () => {
-      if (!user) { setCheckingAdmin(false); return }
+      if (!user) { 
+        setCheckingAdmin(false); 
+        return 
+      }
       try {
         const adminStatus = await isAdminUser(user.email || "")
         setIsAdmin(adminStatus)
-        if (!adminStatus) router.push("/")
-      } catch { setIsAdmin(false); router.push("/") }
-      finally { setCheckingAdmin(false) }
+        if (!adminStatus) {
+          toast.error("User does not have admin privileges")
+          router.push("/")
+        }
+      } catch (error) { 
+        console.error("Admin check error:", error)
+        setIsAdmin(false); 
+        router.push("/") 
+      }
+      finally { 
+        setCheckingAdmin(false) 
+      }
     }
-    if (!authLoading) checkAdminAccess()
-  }, [user, authLoading, router])
+    if (!authLoading && !isLocked && user) {
+      checkAdminAccess()
+    }
+  }, [user, authLoading, router, isLocked])
 
   const fetchData = async () => {
     try {
@@ -132,12 +384,18 @@ export default function AdminPage() {
       })
       setEventStats(stats)
     } catch (error) {
-      console.error(error)
+      console.error("Fetch data error:", error)
       toast.error("Failed to fetch data")
-    } finally { setLoading(false) }
+    } finally { 
+      setLoading(false) 
+    }
   }
 
-  useEffect(() => { if (isAdmin) fetchData() }, [isAdmin])
+  useEffect(() => { 
+    if (isAdmin && !isLocked) {
+      fetchData()
+    }
+  }, [isAdmin, isLocked])
 
   const handleBatchCheckIn = async () => {
     if (selectedGuests.length === 0) return
@@ -147,7 +405,7 @@ export default function AdminPage() {
       for (const guestId of selectedGuests) {
         await checkInBooking(guestId, user?.email || "admin")
       }
-      toast.success(`Successfully checked in ${selectedGuests.length} guests`, { id: toastId })
+      toast.success(`✓ Successfully checked in ${selectedGuests.length} guests`, { id: toastId })
       setSelectedGuests([])
       setBulkCheckInModal(false)
       fetchData()
@@ -173,7 +431,7 @@ export default function AdminPage() {
       }
       
       await checkInBooking(booking.id, user?.email || "admin")
-      toast.success("Ticket verified successfully", { 
+      toast.success("✓ Ticket verified successfully", { 
         id: toastId,
         description: `Guest: ${booking.attendeeDetails.name}`
       })
@@ -189,7 +447,7 @@ export default function AdminPage() {
     const toastId = toast.loading("Deleting event...")
     try {
       await deleteEvent(eventToDelete.id)
-      toast.success("Event deleted successfully", { id: toastId })
+      toast.success("✓ Event deleted successfully", { id: toastId })
       setDeleteConfirmOpen(false)
       setEventToDelete(null)
       fetchData()
@@ -215,10 +473,10 @@ export default function AdminPage() {
 
       if (editingEvent) {
         await updateEvent(editingEvent.id, eventData)
-        toast.success("Event updated successfully", { id: toastId })
+        toast.success("✓ Event updated successfully", { id: toastId })
       } else {
         await createEvent(eventData)
-        toast.success("Event created successfully", { id: toastId })
+        toast.success("✓ Event created successfully", { id: toastId })
       }
       
       setEventFormOpen(false)
@@ -279,28 +537,257 @@ export default function AdminPage() {
     }
   }
 
-  if (authLoading || checkingAdmin) return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
-      <div className="text-center space-y-4">
-        <Zap className="h-12 w-12 text-[#7c3aed] animate-pulse mx-auto" />
-        <p className="text-[#7c3aed] font-black uppercase tracking-widest text-sm">LOADING ADMIN PANEL</p>
-        <p className="text-zinc-500 text-xs">Verifying credentials...</p>
-      </div>
-    </div>
-  )
+  // Staff Entry Lock Screen
+  if (isLocked) {
+    return (
+      <main className="min-h-screen bg-black text-white overflow-hidden">
+        {/* Background Effects */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#7c3aed]/20 blur-[120px] rounded-full animate-pulse" />
+          <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#c026d3]/20 blur-[120px] rounded-full" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] bg-gradient-to-br from-[#7c3aed]/5 to-transparent blur-[100px] rounded-full" />
+        </div>
 
-  if (!isAdmin) return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
-      <div className="text-center space-y-6 p-8">
-        <Shield className="h-16 w-16 text-red-500 mx-auto" />
-        <h1 className="text-2xl font-black text-white">ACCESS DENIED</h1>
-        <p className="text-zinc-500">You don't have permission to access this page</p>
-        <Button onClick={() => router.push("/")} className="bg-[#7c3aed] hover:bg-[#6d28d9]">
-          Return to Home
-        </Button>
+        <div className="container min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 relative z-10">
+          <div className="w-full max-w-md mx-auto space-y-8 animate-fade-in">
+            {/* Header */}
+            <div className="text-center space-y-6">
+              <div className="relative inline-block">
+                <div className="absolute -inset-4 bg-[#7c3aed]/20 blur-xl rounded-full animate-pulse" />
+                <div className="relative h-20 w-20 sm:h-24 sm:w-24 rounded-3xl bg-gradient-to-br from-[#7c3aed] to-[#6d28d9] border-2 border-white/20 flex items-center justify-center shadow-2xl">
+                  <Shield className="h-10 w-10 sm:h-12 sm:w-12 text-white" />
+                </div>
+                <Lock className="absolute -bottom-2 -right-2 h-6 w-6 sm:h-8 sm:w-8 text-[#7c3aed] bg-black rounded-full p-1.5 border-2 border-black" />
+              </div>
+              
+              <div>
+                <Badge className="mb-3 bg-[#7c3aed]/20 text-[#a78bfa] border-[#7c3aed]/30 font-black uppercase text-[8px] tracking-[0.3em] px-4 py-1">
+                  <Key className="h-3 w-3 mr-2" /> STAFF ACCESS ONLY
+                </Badge>
+                <h1 className="text-3xl sm:text-5xl font-black italic tracking-tighter uppercase leading-[0.9]">
+                  VYBB <span className="text-[#7c3aed] italic">COMMAND</span>
+                </h1>
+                <p className="text-zinc-400 text-sm mt-2 max-w-sm mx-auto">
+                  Authorized personnel only. Unauthorized access is strictly prohibited.
+                </p>
+              </div>
+            </div>
+
+            {/* Security Card */}
+            <Card className="bg-gradient-to-br from-zinc-950/90 to-black/90 border-white/10 p-6 sm:p-8 rounded-[2rem] backdrop-blur-xl shadow-2xl">
+              <div className="text-center space-y-6">
+                <div className="space-y-2">
+                  <h2 className="text-xl sm:text-2xl font-black italic uppercase">Staff Entry Gate</h2>
+                  <p className="text-zinc-500 text-sm">
+                    Enter staff password or scan barcode
+                  </p>
+                </div>
+
+                {isLockedOut ? (
+                  <div className="space-y-4">
+                    <div className="p-4 sm:p-6 bg-red-500/10 border border-red-500/20 rounded-2xl">
+                      <AlertCircle className="h-8 w-8 sm:h-10 sm:w-10 text-red-500 mx-auto mb-3" />
+                      <h3 className="font-bold text-lg text-white">System Locked</h3>
+                      <p className="text-zinc-400 text-sm mt-1">
+                        Too many failed attempts. Please wait:
+                      </p>
+                      <div className="text-2xl sm:text-3xl font-black text-red-400 mt-4">
+                        {Math.ceil(lockoutTimer / 1000)}s
+                      </div>
+                      <div className="mt-4 w-full bg-red-500/20 h-2 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-red-500 transition-all duration-1000"
+                          style={{ width: `${(lockoutTimer / SECURITY_CONFIG.LOCKOUT_TIME) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsLockedOut(false)
+                        setLockoutTimer(0)
+                        setAttempts(0)
+                        setPassword("")
+                        setBarcodeInput("")
+                      }}
+                      className="w-full rounded-xl h-12"
+                      disabled={lockoutTimer > 0}
+                    >
+                      {lockoutTimer > 0 ? "Please wait..." : "Reset Lock"}
+                    </Button>
+                  </div>
+                ) : (
+                  <form onSubmit={handlePasswordSubmit} className="space-y-6">
+                    <div className="space-y-4">
+                      <div className="relative">
+                        <Input
+                          ref={passwordRef}
+                          type={showPassword ? "text" : "password"}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value.toUpperCase())}
+                          placeholder="ENTER STAFF PASSWORD"
+                          className="h-12 sm:h-14 bg-white/5 border-white/10 rounded-xl text-center font-black tracking-widest text-base sm:text-lg uppercase placeholder:text-zinc-600 transition-all"
+                          disabled={isLockedOut || isSubmitting}
+                          autoComplete="off"
+                          autoCapitalize="characters"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 sm:h-10 sm:w-10"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                      
+                      {/* Barcode input indicator */}
+                      {barcodeInput && (
+                        <div className="text-center">
+                          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 rounded-lg">
+                            <span className="text-xs text-zinc-500">Barcode:</span>
+                            <span className="font-mono text-sm text-[#7c3aed] tracking-widest">
+                              {barcodeInput}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-zinc-600">
+                          Attempts: <span className={attempts >= SECURITY_CONFIG.MAX_ATTEMPTS - 1 ? "text-red-400" : ""}>
+                            {attempts}/{SECURITY_CONFIG.MAX_ATTEMPTS}
+                          </span>
+                        </span>
+                        <span className="text-zinc-500">
+                          Press <kbd className="px-2 py-1 bg-white/5 rounded text-xs">Enter</kbd> to submit
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                      <Button
+                        type="submit"
+                        className="h-12 rounded-xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] font-black uppercase text-sm hover:from-[#6d28d9] hover:to-[#5b21b6] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={!password.trim() || isSubmitting}
+                      >
+                        {isSubmitting ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Key className="h-4 w-4 mr-2" /> Enter
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => setSecurityScannerOpen(true)}
+                        className="h-12 rounded-xl bg-white/5 border border-white/10 font-black uppercase text-sm hover:bg-white/10 transition-all"
+                        disabled={isSubmitting}
+                      >
+                        <Scan className="h-4 w-4 mr-2" /> Scan QR
+                      </Button>
+                    </div>
+                  </form>
+                )}
+
+                <div className="pt-6 border-t border-white/5 space-y-3">
+                  <p className="text-[10px] text-zinc-600 font-medium uppercase tracking-widest">
+                    For barcode scanner: Scan <code className="bg-white/5 px-2 py-1 rounded font-mono">AYU269</code>
+                  </p>
+                  <p className="text-[10px] text-zinc-700">
+                    Or type <span className="text-[#7c3aed] font-bold">AYU269</span> and press Enter
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Footer Note */}
+            <div className="text-center">
+              <p className="text-[10px] text-zinc-700 font-black uppercase tracking-[0.3em]">
+                SECURITY LEVEL 3 • ENCRYPTED ACCESS
+              </p>
+              <div className="mt-2 flex items-center justify-center gap-2">
+                <div className="h-1 w-1 rounded-full bg-green-500 animate-pulse" />
+                <div className="h-1 w-1 rounded-full bg-yellow-500 animate-pulse delay-150" />
+                <div className="h-1 w-1 rounded-full bg-red-500 animate-pulse delay-300" />
+                <span className="text-[8px] text-zinc-700 ml-2">SECURE CONNECTION ACTIVE</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Security QR Scanner Modal */}
+        <QRScanner 
+          isOpen={securityScannerOpen} 
+          onScan={handleSecurityQRScan} 
+          onClose={() => setSecurityScannerOpen(false)}
+          title="Scan Staff Barcode"
+          description="Point camera at staff barcode (AYU269) to authenticate"
+        />
+        
+        {/* Add custom CSS for shake animation */}
+        <style jsx global>{`
+          @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+          }
+          .animate-shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+          }
+          @keyframes fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          .animate-fade-in {
+            animation: fade-in 0.6s ease-out;
+          }
+        `}</style>
+      </main>
+    )
+  }
+
+  if (authLoading || checkingAdmin) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center space-y-6">
+          <div className="relative">
+            <Zap className="h-16 w-16 text-[#7c3aed] animate-pulse mx-auto" />
+            <div className="absolute -inset-4 bg-[#7c3aed]/10 blur-xl rounded-full" />
+          </div>
+          <div className="space-y-2">
+            <p className="text-[#7c3aed] font-black uppercase tracking-widest text-sm">INITIALIZING VYBB COMMAND</p>
+            <p className="text-zinc-500 text-xs">Verifying admin credentials...</p>
+          </div>
+          <div className="w-48 h-1 bg-white/5 rounded-full overflow-hidden mx-auto">
+            <div className="h-full bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] animate-pulse" style={{ width: '70%' }} />
+          </div>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center space-y-8 p-8 max-w-md">
+          <div className="space-y-4">
+            <Shield className="h-20 w-20 text-red-500 mx-auto" />
+            <h1 className="text-3xl font-black text-white">ACCESS DENIED</h1>
+            <p className="text-zinc-500">You don't have permission to access this page</p>
+          </div>
+          <Button 
+            onClick={() => router.push("/")} 
+            className="bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-8 h-12 font-black uppercase"
+          >
+            Return to Home
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <main className="min-h-screen bg-black text-white selection:bg-[#7c3aed]/30 overflow-x-hidden">
@@ -325,15 +812,26 @@ export default function AdminPage() {
                 <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-[0.9]">
                   VYBB <span className="text-[#7c3aed] italic">COMMAND</span>
                 </h1>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={fetchData} 
-                  className="rounded-full hover:bg-white/10"
-                  disabled={loading}
-                >
-                  <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={fetchData} 
+                    className="rounded-full hover:bg-white/10 transition-all"
+                    disabled={loading}
+                  >
+                    <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={handleLogout}
+                    className="rounded-full hover:bg-red-500/10 hover:text-red-400 transition-all group"
+                    title="Logout from staff panel"
+                  >
+                    <Lock className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                  </Button>
+                </div>
               </div>
               <p className="text-zinc-500 text-sm mt-2">Welcome back, {user?.email}</p>
             </div>
@@ -341,7 +839,7 @@ export default function AdminPage() {
             <div className="flex flex-wrap gap-4">
               <Button 
                 onClick={() => setScannerOpen(true)} 
-                className="h-16 rounded-[1.5rem] bg-gradient-to-r from-white to-zinc-200 text-black hover:from-[#7c3aed] hover:to-[#6d28d9] hover:text-white font-black uppercase tracking-widest px-8 transition-all active:scale-95 shadow-2xl"
+                className="h-16 rounded-[1.5rem] bg-gradient-to-r from-white to-zinc-200 text-black hover:from-[#7c3aed] hover:to-[#6d28d9] hover:text-white font-black uppercase tracking-widest px-8 transition-all active:scale-95 shadow-2xl hover:shadow-[#7c3aed]/30"
               >
                 <Scan className="h-5 w-5 mr-3" /> Gate Scanner
               </Button>
@@ -349,14 +847,14 @@ export default function AdminPage() {
                 <div className="flex gap-4">
                   <Button 
                     onClick={() => setBulkCheckInModal(true)} 
-                    className="h-16 rounded-[1.5rem] bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] text-white font-black uppercase px-8 shadow-2xl"
+                    className="h-16 rounded-[1.5rem] bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] text-white font-black uppercase px-8 shadow-2xl hover:shadow-[#7c3aed]/30 transition-all"
                   >
                     <CheckCircle2 className="h-5 w-5 mr-2" /> Check In ({selectedGuests.length})
                   </Button>
                   <Button 
                     variant="outline" 
                     onClick={() => setSelectedGuests([])} 
-                    className="h-16 rounded-[1.5rem] border-white/10"
+                    className="h-16 rounded-[1.5rem] border-white/10 hover:bg-white/5"
                   >
                     <X className="h-5 w-5" />
                   </Button>
@@ -389,7 +887,7 @@ export default function AdminPage() {
                 icon: Ticket,
               }
             ].map((item, i) => (
-              <Card key={i} className="p-8 rounded-[2.5rem] border border-white/5 bg-gradient-to-br from-zinc-950/80 to-black/80 backdrop-blur-xl shadow-2xl relative overflow-hidden group hover:border-[#7c3aed]/30 transition-all">
+              <Card key={i} className="p-8 rounded-[2.5rem] border border-white/5 bg-gradient-to-br from-zinc-950/80 to-black/80 backdrop-blur-xl shadow-2xl relative overflow-hidden group hover:border-[#7c3aed]/30 transition-all hover:scale-[1.02]">
                 <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                   <item.icon className="h-20 w-20 text-[#7c3aed]" />
                 </div>
@@ -404,10 +902,10 @@ export default function AdminPage() {
           {/* Tabs Section */}
           <Tabs defaultValue="manage-events" className="space-y-10" onValueChange={setActiveTab}>
             <TabsList className="bg-white/5 border border-white/10 p-1 rounded-2xl h-14">
-              <TabsTrigger value="manage-events" className="rounded-xl px-8 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-[#7c3aed]">
+              <TabsTrigger value="manage-events" className="rounded-xl px-8 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-[#7c3aed] data-[state=active]:text-white transition-all">
                 <Calendar className="h-3 w-3 mr-2" /> Events
               </TabsTrigger>
-              <TabsTrigger value="bookings" className="rounded-xl px-8 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-[#7c3aed]">
+              <TabsTrigger value="bookings" className="rounded-xl px-8 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-[#7c3aed] data-[state=active]:text-white transition-all">
                 <Users className="h-3 w-3 mr-2" /> Bookings
               </TabsTrigger>
             </TabsList>
@@ -421,7 +919,7 @@ export default function AdminPage() {
                 </div>
                 <Button 
                   onClick={() => { setEditingEvent(null); setEventFormOpen(true); }} 
-                  className="rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-8 h-12 font-black uppercase text-sm"
+                  className="rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-8 h-12 font-black uppercase text-sm hover:from-[#6d28d9] hover:to-[#5b21b6] shadow-xl"
                 >
                   <Plus className="h-4 w-4 mr-2" /> Create Event
                 </Button>
@@ -441,7 +939,7 @@ export default function AdminPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 text-left">
                   <div 
                     onClick={() => { setEditingEvent(null); setEventFormOpen(true); }} 
-                    className="cursor-pointer aspect-video md:aspect-auto rounded-[2.5rem] border-2 border-dashed border-white/10 bg-gradient-to-br from-white/5 to-transparent hover:border-[#7c3aed]/50 transition-all flex flex-col items-center justify-center p-12 text-center group min-h-[300px] hover:scale-[1.02]"
+                    className="cursor-pointer aspect-video md:aspect-auto rounded-[2.5rem] border-2 border-dashed border-white/10 bg-gradient-to-br from-white/5 to-transparent hover:border-[#7c3aed]/50 transition-all flex flex-col items-center justify-center p-12 text-center group min-h-[300px] hover:scale-[1.02] hover:bg-white/[0.02]"
                   >
                     <div className="relative">
                       <Plus className="h-10 w-10 text-[#7c3aed] group-hover:scale-110 transition-transform" />
@@ -452,12 +950,15 @@ export default function AdminPage() {
                   </div>
                   
                   {events.map((e) => (
-                    <Card key={e.id} className="bg-gradient-to-br from-zinc-950/80 to-black/80 border-white/5 group rounded-[2.5rem] overflow-hidden hover:border-[#7c3aed]/30 transition-all shadow-2xl hover:shadow-[#7c3aed]/20">
+                    <Card key={e.id} className="bg-gradient-to-br from-zinc-950/80 to-black/80 border-white/5 group rounded-[2.5rem] overflow-hidden hover:border-[#7c3aed]/30 transition-all shadow-2xl hover:shadow-[#7c3aed]/20 hover:scale-[1.02]">
                       <div className="relative h-48">
                         <img 
                           src={e.imageUrl} 
                           className="w-full h-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all duration-500" 
                           alt={e.title} 
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop'
+                          }}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                         <Badge className="absolute top-4 left-4 bg-black/50 backdrop-blur-sm border-white/10">
@@ -498,14 +999,14 @@ export default function AdminPage() {
                             <Button 
                               size="icon" 
                               onClick={() => { setEditingEvent(e); setEventFormOpen(true); }} 
-                              className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 hover:bg-[#7c3aed] transition-all"
+                              className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 hover:bg-[#7c3aed] transition-all hover:scale-110"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button 
                               size="icon" 
                               onClick={() => { setEventToDelete(e); setDeleteConfirmOpen(true); }} 
-                              className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 hover:bg-red-600 transition-all"
+                              className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 hover:bg-red-600 transition-all hover:scale-110"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -532,21 +1033,21 @@ export default function AdminPage() {
                       <Button
                         variant={filter === "all" ? "default" : "outline"}
                         onClick={() => setFilter("all")}
-                        className={`rounded-xl ${filter === "all" ? 'bg-[#7c3aed]' : ''}`}
+                        className={`rounded-xl ${filter === "all" ? 'bg-[#7c3aed] text-white' : 'bg-white/5 border-white/10'}`}
                       >
                         All
                       </Button>
                       <Button
                         variant={filter === "pending" ? "default" : "outline"}
                         onClick={() => setFilter("pending")}
-                        className={`rounded-xl ${filter === "pending" ? 'bg-[#7c3aed]' : ''}`}
+                        className={`rounded-xl ${filter === "pending" ? 'bg-[#7c3aed] text-white' : 'bg-white/5 border-white/10'}`}
                       >
                         <Clock className="h-3 w-3 mr-2" /> Pending
                       </Button>
                       <Button
                         variant={filter === "checked-in" ? "default" : "outline"}
                         onClick={() => setFilter("checked-in")}
-                        className={`rounded-xl ${filter === "checked-in" ? 'bg-[#7c3aed]' : ''}`}
+                        className={`rounded-xl ${filter === "checked-in" ? 'bg-[#7c3aed] text-white' : 'bg-white/5 border-white/10'}`}
                       >
                         <CheckCircle2 className="h-3 w-3 mr-2" /> Checked In
                       </Button>
@@ -554,7 +1055,7 @@ export default function AdminPage() {
                     
                     <Button
                       onClick={handleExport}
-                      className="rounded-xl bg-gradient-to-r from-green-500 to-emerald-600"
+                      className="rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-emerald-600 hover:to-green-700 shadow-lg"
                     >
                       <Download className="h-4 w-4 mr-2" /> Export CSV
                     </Button>
@@ -567,7 +1068,7 @@ export default function AdminPage() {
                     placeholder="SEARCH GUEST NAME, EMAIL, OR BOOKING ID..." 
                     value={searchQuery} 
                     onChange={(e) => setSearchQuery(e.target.value)} 
-                    className="pl-12 h-14 bg-white/5 border-white/10 rounded-xl font-bold uppercase text-sm"
+                    className="pl-12 h-14 bg-white/5 border-white/10 rounded-xl font-bold uppercase text-sm placeholder:text-zinc-600 focus:border-[#7c3aed]/50"
                   />
                 </div>
 
@@ -591,7 +1092,7 @@ export default function AdminPage() {
                           <th className="text-left p-4 text-xs font-black uppercase tracking-widest text-zinc-500">
                             <input 
                               type="checkbox" 
-                              className="rounded border-white/10 bg-white/5"
+                              className="rounded border-white/10 bg-white/5 checked:bg-[#7c3aed] checked:border-[#7c3aed]"
                               checked={selectedGuests.length === filteredBookings.length}
                               onChange={(e) => {
                                 if (e.target.checked) {
@@ -619,7 +1120,7 @@ export default function AdminPage() {
                             <td className="p-4">
                               <input 
                                 type="checkbox" 
-                                className="rounded border-white/10 bg-white/5"
+                                className="rounded border-white/10 bg-white/5 checked:bg-[#7c3aed] checked:border-[#7c3aed]"
                                 checked={selectedGuests.includes(guest.id)}
                                 onChange={(e) => {
                                   if (e.target.checked) {
@@ -656,12 +1157,12 @@ export default function AdminPage() {
                             </td>
                             <td className="p-4">
                               <div className="font-bold text-white">₹{guest.amount}</div>
-                              <Badge className={`text-xs mt-1 ${guest.paymentStatus === 'completed' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                              <Badge className={`text-xs mt-1 ${guest.paymentStatus === 'completed' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'} border`}>
                                 {guest.paymentStatus}
                               </Badge>
                             </td>
                             <td className="p-4">
-                              <Badge className={`${guest.checkedIn ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'} border-none`}>
+                              <Badge className={`${guest.checkedIn ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'} border`}>
                                 {guest.checkedIn ? (
                                   <>
                                     <CheckCircle2 className="h-3 w-3 mr-1" /> Checked In
@@ -682,14 +1183,14 @@ export default function AdminPage() {
                                       const toastId = toast.loading("Checking in guest...")
                                       checkInBooking(guest.id, user?.email || "admin")
                                         .then(() => {
-                                          toast.success("Guest checked in successfully", { id: toastId })
+                                          toast.success("✓ Guest checked in successfully", { id: toastId })
                                           fetchData()
                                         })
                                         .catch(() => {
                                           toast.error("Failed to check in guest", { id: toastId })
                                         })
                                     }}
-                                    className="rounded-lg bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] text-xs h-8 px-3"
+                                    className="rounded-lg bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] text-xs h-8 px-3 hover:from-[#6d28d9] hover:to-[#5b21b6]"
                                   >
                                     Check In
                                   </Button>
@@ -701,7 +1202,7 @@ export default function AdminPage() {
                                     navigator.clipboard.writeText(guest.id)
                                     toast.success("Booking ID copied to clipboard")
                                   }}
-                                  className="rounded-lg border-white/10 text-xs h-8 px-3"
+                                  className="rounded-lg border-white/10 text-xs h-8 px-3 hover:bg-white/5"
                                 >
                                   Copy ID
                                 </Button>
@@ -835,6 +1336,7 @@ function EventFormModal({ isOpen, onClose, onSubmit, initialData }: any) {
       <motion.div 
         initial={{ scale: 0.95, opacity: 0 }} 
         animate={{ scale: 1, opacity: 1 }} 
+        exit={{ scale: 0.95, opacity: 0 }}
         className="w-full max-w-4xl bg-gradient-to-br from-zinc-950 to-black border border-white/10 rounded-[3rem] p-8 sm:p-12 shadow-2xl my-8"
       >
         <div className="flex justify-between items-start mb-10 text-left">
@@ -863,7 +1365,7 @@ function EventFormModal({ isOpen, onClose, onSubmit, initialData }: any) {
                   required 
                   value={formData.title || ""} 
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })} 
-                  className="h-12 bg-white/5 border-white/10 rounded-xl font-medium" 
+                  className="h-12 bg-white/5 border-white/10 rounded-xl font-medium focus:border-[#7c3aed]" 
                   placeholder="Enter event title"
                 />
               </div>
@@ -889,7 +1391,7 @@ function EventFormModal({ isOpen, onClose, onSubmit, initialData }: any) {
                   required
                   value={formData.imageUrl || ""} 
                   onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })} 
-                  className="h-12 bg-white/5 border-white/10 rounded-xl font-medium" 
+                  className="h-12 bg-white/5 border-white/10 rounded-xl font-medium focus:border-[#7c3aed]" 
                   placeholder="https://example.com/image.jpg"
                 />
               </div>
@@ -902,7 +1404,7 @@ function EventFormModal({ isOpen, onClose, onSubmit, initialData }: any) {
                     type="date" 
                     value={formData.date || ""} 
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })} 
-                    className="h-12 bg-white/5 border-white/10 rounded-xl font-medium" 
+                    className="h-12 bg-white/5 border-white/10 rounded-xl font-medium focus:border-[#7c3aed]" 
                   />
                 </div>
                 
@@ -912,7 +1414,7 @@ function EventFormModal({ isOpen, onClose, onSubmit, initialData }: any) {
                     required 
                     value={formData.time || ""} 
                     onChange={(e) => setFormData({ ...formData, time: e.target.value })} 
-                    className="h-12 bg-white/5 border-white/10 rounded-xl font-medium" 
+                    className="h-12 bg-white/5 border-white/10 rounded-xl font-medium focus:border-[#7c3aed]" 
                     placeholder="7:00 PM - 10:00 PM"
                   />
                 </div>
@@ -929,7 +1431,7 @@ function EventFormModal({ isOpen, onClose, onSubmit, initialData }: any) {
                   required 
                   value={formData.venue || ""} 
                   onChange={(e) => setFormData({ ...formData, venue: e.target.value })} 
-                  className="h-12 bg-white/5 border-white/10 rounded-xl font-medium uppercase" 
+                  className="h-12 bg-white/5 border-white/10 rounded-xl font-medium uppercase focus:border-[#7c3aed]" 
                   placeholder="Venue name"
                 />
               </div>
@@ -962,7 +1464,7 @@ function EventFormModal({ isOpen, onClose, onSubmit, initialData }: any) {
                         lat: parseFloat(e.target.value) || 0 
                       } 
                     })} 
-                    className="h-12 bg-white/5 border-white/10 rounded-xl font-medium" 
+                    className="h-12 bg-white/5 border-white/10 rounded-xl font-medium focus:border-[#7c3aed]" 
                   />
                 </div>
                 
@@ -980,7 +1482,7 @@ function EventFormModal({ isOpen, onClose, onSubmit, initialData }: any) {
                         lng: parseFloat(e.target.value) || 0 
                       } 
                     })} 
-                    className="h-12 bg-white/5 border-white/10 rounded-xl font-medium" 
+                    className="h-12 bg-white/5 border-white/10 rounded-xl font-medium focus:border-[#7c3aed]" 
                   />
                 </div>
               </div>
@@ -1012,7 +1514,7 @@ function EventFormModal({ isOpen, onClose, onSubmit, initialData }: any) {
                     min="0"
                     value={isNaN(formData.price) ? "" : formData.price} 
                     onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) || 0 })} 
-                    className="h-12 bg-white/5 border-white/10 rounded-xl font-medium" 
+                    className="h-12 bg-white/5 border-white/10 rounded-xl font-medium focus:border-[#7c3aed]" 
                   />
                 </div>
               </div>
@@ -1030,7 +1532,7 @@ function EventFormModal({ isOpen, onClose, onSubmit, initialData }: any) {
                       totalSeats: parseInt(e.target.value) || 0,
                       availableSeats: parseInt(e.target.value) || 0 
                     })} 
-                    className="h-12 bg-white/5 border-white/10 rounded-xl font-medium" 
+                    className="h-12 bg-white/5 border-white/10 rounded-xl font-medium focus:border-[#7c3aed]" 
                   />
                 </div>
                 
@@ -1042,7 +1544,7 @@ function EventFormModal({ isOpen, onClose, onSubmit, initialData }: any) {
                     max={formData.totalSeats}
                     value={isNaN(formData.availableSeats) ? "" : formData.availableSeats} 
                     onChange={(e) => setFormData({ ...formData, availableSeats: parseInt(e.target.value) || 0 })} 
-                    className="h-12 bg-white/5 border-white/10 rounded-xl font-medium" 
+                    className="h-12 bg-white/5 border-white/10 rounded-xl font-medium focus:border-[#7c3aed]" 
                   />
                 </div>
               </div>
@@ -1054,13 +1556,13 @@ function EventFormModal({ isOpen, onClose, onSubmit, initialData }: any) {
               type="button" 
               variant="ghost" 
               onClick={onClose} 
-              className="flex-1 rounded-2xl h-14 font-black uppercase text-sm border border-white/10"
+              className="flex-1 rounded-2xl h-14 font-black uppercase text-sm border border-white/10 hover:bg-white/5"
             >
               Cancel
             </Button>
             <Button 
               type="submit" 
-              className="flex-1 bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] rounded-2xl h-14 font-black uppercase text-sm shadow-xl hover:shadow-[#7c3aed]/30"
+              className="flex-1 bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] rounded-2xl h-14 font-black uppercase text-sm shadow-xl hover:shadow-[#7c3aed]/30 hover:from-[#6d28d9] hover:to-[#5b21b6]"
             >
               {initialData ? "Update Event" : "Create Event"}
             </Button>
@@ -1079,7 +1581,8 @@ function DeleteConfirmDialog({ isOpen, onClose, onConfirm, eventTitle }: any) {
     <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4">
       <motion.div 
         initial={{ scale: 0.95, opacity: 0 }} 
-        animate={{ scale: 1, opacity: 1 }} 
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
         className="max-w-md bg-gradient-to-br from-zinc-950 to-black border border-red-500/20 rounded-[3rem] p-12 text-center space-y-8 shadow-2xl"
       >
         <div className="mx-auto w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/20">
@@ -1098,13 +1601,13 @@ function DeleteConfirmDialog({ isOpen, onClose, onConfirm, eventTitle }: any) {
           <Button 
             variant="ghost" 
             onClick={onClose} 
-            className="flex-1 h-14 rounded-2xl font-black text-sm border border-white/10"
+            className="flex-1 h-14 rounded-2xl font-black text-sm border border-white/10 hover:bg-white/5"
           >
             Cancel
           </Button>
           <Button 
             onClick={onConfirm} 
-            className="flex-1 bg-gradient-to-r from-red-600 to-red-700 h-14 rounded-2xl font-black text-sm hover:from-red-700 hover:to-red-800"
+            className="flex-1 bg-gradient-to-r from-red-600 to-red-700 h-14 rounded-2xl font-black text-sm hover:from-red-700 hover:to-red-800 shadow-xl"
           >
             Delete Event
           </Button>
@@ -1122,7 +1625,8 @@ function BulkCheckInModal({ isOpen, onClose, onConfirm, count }: any) {
     <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4">
       <motion.div 
         initial={{ scale: 0.95, opacity: 0 }} 
-        animate={{ scale: 1, opacity: 1 }} 
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
         className="max-w-md bg-gradient-to-br from-zinc-950 to-black border border-[#7c3aed]/20 rounded-[3rem] p-12 text-center space-y-8 shadow-2xl"
       >
         <div className="mx-auto w-16 h-16 bg-[#7c3aed]/10 rounded-full flex items-center justify-center border border-[#7c3aed]/20">
@@ -1141,13 +1645,13 @@ function BulkCheckInModal({ isOpen, onClose, onConfirm, count }: any) {
           <Button 
             variant="ghost" 
             onClick={onClose} 
-            className="flex-1 h-14 rounded-2xl font-black text-sm border border-white/10"
+            className="flex-1 h-14 rounded-2xl font-black text-sm border border-white/10 hover:bg-white/5"
           >
             Cancel
           </Button>
           <Button 
             onClick={onConfirm} 
-            className="flex-1 bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] h-14 rounded-2xl font-black text-sm hover:from-[#6d28d9] hover:to-[#5b21b6]"
+            className="flex-1 bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] h-14 rounded-2xl font-black text-sm hover:from-[#6d28d9] hover:to-[#5b21b6] shadow-xl"
           >
             Check In {count} Guest{count !== 1 ? 's' : ''}
           </Button>
