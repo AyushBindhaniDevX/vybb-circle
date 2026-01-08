@@ -8,46 +8,48 @@ import { getBookingsByUserId, getEventById } from "@/lib/db-utils"
 import { Button } from "@/components/ui/button"
 import { 
   Mail, Calendar, MapPin, LogOut, 
-  Sparkles, User, Ticket, ArrowRight 
+  Sparkles, User, Ticket, ArrowRight, CheckCircle2 
 } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/components/auth-provider"
 import { auth } from "@/lib/firebase"
+import { Badge } from "@/components/ui/badge"
 
 function ProfileContent() {
   const { user } = useAuth()
   const [bookings, setBookings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Inside your profile/page.tsx useEffect
+  useEffect(() => {
+    if (!user) return;
 
-useEffect(() => {
-  if (!user) return;
+    const fetchHistory = async () => {
+      try {
+        setLoading(true);
+        const userBookings = await getBookingsByUserId(user.uid);
+        
+        const enrichedBookings = await Promise.all(
+          userBookings.map(async (b) => {
+            const event = await getEventById(b.eventId);
+            return { ...b, event };
+          }),
+        );
+        
+        // Sort: Active tickets first, then Redeemed
+        const sortedBookings = enrichedBookings.sort((a, b) => {
+          return (a.checked_in === b.checked_in) ? 0 : a.checked_in ? 1 : -1;
+        });
 
-  const fetchHistory = async () => {
-    try {
-      setLoading(true);
-      // This calls our updated, more resilient function
-      const userBookings = await getBookingsByUserId(user.uid);
-      
-      const enrichedBookings = await Promise.all(
-        userBookings.map(async (b) => {
-          // Fetch the event details for each booking to get images/titles
-          const event = await getEventById(b.eventId);
-          return { ...b, event };
-        }),
-      );
-      
-      setBookings(enrichedBookings);
-    } catch (error) {
-      console.error("Profile page load error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+        setBookings(sortedBookings);
+      } catch (error) {
+        console.error("Profile page load error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  fetchHistory();
-}, [user]);
+    fetchHistory();
+  }, [user]);
 
   if (loading) {
     return (
@@ -59,7 +61,6 @@ useEffect(() => {
 
   return (
     <main className="min-h-screen bg-black text-white selection:bg-violet-500/30">
-      {/* Aurora Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-violet-600/10 blur-[120px] rounded-full animate-pulse" />
       </div>
@@ -69,7 +70,6 @@ useEffect(() => {
       <div className="relative z-10 mx-auto max-w-7xl px-4 pt-32 pb-24 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-4">
           
-          {/* User Sidebar - Cleaned version without levels */}
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -102,7 +102,6 @@ useEffect(() => {
             </div>
           </motion.div>
 
-          {/* Main Tickets Area */}
           <div className="lg:col-span-3">
             <h1 className="text-4xl font-black italic mb-8 tracking-tighter uppercase">My Tickets</h1>
 
@@ -119,47 +118,71 @@ useEffect(() => {
             ) : (
               <div className="grid gap-6">
                 <AnimatePresence>
-                  {bookings.map((booking, index) => (
-                    <motion.div
-                      key={booking.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="group relative flex flex-col md:flex-row gap-6 p-6 rounded-[2rem] border border-white/5 bg-zinc-950/40 hover:border-violet-500/30 transition-all shadow-xl backdrop-blur-sm"
-                    >
-                      <div className="h-32 w-full md:w-32 shrink-0 overflow-hidden rounded-2xl border border-white/5">
-                        <img
-                          src={booking.event?.imageUrl || "/placeholder.svg"}
-                          className="h-full w-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all duration-500"
-                          alt=""
-                        />
-                      </div>
-
-                      <div className="flex-1 flex flex-col justify-between">
-                        <div>
-                          <h3 className="text-2xl font-black italic tracking-tight group-hover:text-violet-400 transition-colors">
-                            {booking.event?.title || "Event Name"}
-                          </h3>
-                          <div className="flex flex-wrap gap-4 mt-2 text-xs font-bold text-zinc-500 uppercase tracking-tighter">
-                            <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-violet-500" /> {booking.event?.date}</span>
-                            <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-violet-500" /> {booking.event?.venue}</span>
-                          </div>
+                  {bookings.map((booking, index) => {
+                    const isRedeemed = booking.checked_in === true;
+                    
+                    return (
+                      <motion.div
+                        key={booking.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className={`group relative flex flex-col md:flex-row gap-6 p-6 rounded-[2rem] border transition-all shadow-xl backdrop-blur-sm ${
+                          isRedeemed 
+                          ? 'bg-zinc-950/20 border-white/5 opacity-60 grayscale' 
+                          : 'bg-zinc-950/40 border-white/5 hover:border-violet-500/30'
+                        }`}
+                      >
+                        <div className="h-32 w-full md:w-32 shrink-0 overflow-hidden rounded-2xl border border-white/5">
+                          <img
+                            src={booking.event?.imageUrl || "/placeholder.svg"}
+                            className="h-full w-full object-cover transition-all duration-500"
+                            alt=""
+                          />
                         </div>
 
-                        <div className="mt-6 flex items-center justify-between pt-4 border-t border-white/5">
-                          <div className="flex flex-col">
-                            <span className="text-[8px] font-black uppercase text-zinc-600 tracking-widest">Seats</span>
-                            <span className="text-sm font-bold">{booking.seatNumbers?.join(", ")}</span>
+                        <div className="flex-1 flex flex-col justify-between">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className={`text-2xl font-black italic tracking-tight transition-colors ${!isRedeemed && 'group-hover:text-violet-400'}`}>
+                                {booking.event?.title || "Event Name"}
+                              </h3>
+                              <div className="flex flex-wrap gap-4 mt-2 text-xs font-bold text-zinc-500 uppercase tracking-tighter">
+                                <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-violet-500" /> {booking.event?.date}</span>
+                                <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-violet-500" /> {booking.event?.venue}</span>
+                              </div>
+                            </div>
+                            
+                            {isRedeemed && (
+                              <Badge className="bg-zinc-800 text-zinc-400 border-white/10 pointer-events-none">
+                                <CheckCircle2 className="h-3 w-3 mr-1" /> REDEEMED
+                              </Badge>
+                            )}
                           </div>
-                          <Link href={`/tickets/${booking.id}`}>
-                            <Button className="rounded-full bg-violet-600 hover:bg-white hover:text-black font-black text-[10px] tracking-widest h-9 px-6">
-                              VIEW TICKET <ArrowRight className="h-3 w-3 ml-2" />
-                            </Button>
-                          </Link>
+
+                          <div className="mt-6 flex items-center justify-between pt-4 border-t border-white/5">
+                            <div className="flex flex-col">
+                              <span className="text-[8px] font-black uppercase text-zinc-600 tracking-widest">Seats</span>
+                              <span className="text-sm font-bold">{booking.seatNumbers?.join(", ")}</span>
+                            </div>
+                            
+                            <Link href={`/tickets/${booking.id}`}>
+                              <Button 
+                                variant={isRedeemed ? "outline" : "default"}
+                                className={`rounded-full font-black text-[10px] tracking-widest h-9 px-6 transition-all ${
+                                  isRedeemed 
+                                  ? 'border-white/10 bg-transparent text-zinc-500 hover:bg-white/5' 
+                                  : 'bg-violet-600 hover:bg-white hover:text-black shadow-lg shadow-violet-500/20'
+                                }`}
+                              >
+                                {isRedeemed ? "VIEW RECEIPT" : "VIEW TICKET"} <ArrowRight className="h-3 w-3 ml-2" />
+                              </Button>
+                            </Link>
+                          </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    );
+                  })}
                 </AnimatePresence>
               </div>
             )}
@@ -167,13 +190,5 @@ useEffect(() => {
         </div>
       </div>
     </main>
-  )
-}
-
-export default function ProfilePage() {
-  return (
-    <ProtectedRoute>
-      <ProfileContent />
-    </ProtectedRoute>
   )
 }
