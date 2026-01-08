@@ -1,7 +1,6 @@
 // Resend Email Configuration
 import { Resend } from 'resend'
 
-// Initialize Resend with API key from environment variables
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 export interface TicketEmailData {
@@ -44,7 +43,6 @@ export async function sendTicketConfirmationEmail(data: TicketEmailData) {
       return { success: false, error }
     }
 
-    console.log('✅ Ticket confirmation email sent:', emailData)
     return { success: true, data: emailData }
   } catch (error) {
     console.error('Failed to send ticket email:', error)
@@ -67,7 +65,6 @@ export async function sendCheckInConfirmationEmail(data: CheckInEmailData) {
       return { success: false, error }
     }
 
-    console.log('✅ Check-in confirmation email sent:', emailData)
     return { success: true, data: emailData }
   } catch (error) {
     console.error('Failed to send check-in email:', error)
@@ -82,100 +79,57 @@ function generateTicketEmailHTML(data: TicketEmailData): string {
 <html>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your Ticket Confirmation</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+    body { font-family: 'Inter', -apple-system, sans-serif; }
+  </style>
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #000000; color: #ffffff;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #000000;">
+<body style="margin: 0; padding: 0; background-color: #000000; color: #ffffff;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #000000; padding: 40px 20px;">
     <tr>
-      <td align="center" style="padding: 40px 20px;">
-        <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(217, 70, 239, 0.05) 100%); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 16px; overflow: hidden;">
-          
-          <!-- Header -->
+      <td align="center">
+        <table width="600" style="max-width: 600px; background: #09090b; border: 1px solid #1e1e1e; border-radius: 32px; overflow: hidden; border-spacing: 0;">
           <tr>
-            <td style="padding: 40px 40px 20px; text-align: center; background: rgba(0, 0, 0, 0.4);">
-              <h1 style="margin: 0; font-size: 36px; font-weight: 900; text-transform: uppercase; letter-spacing: -1px;">
-                VYBB <span style="color: #8b5cf6;">LIVE</span>
-              </h1>
-              <p style="margin: 10px 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 3px; color: #a855f7; font-weight: 700;">
-                Your Experience Awaits
-              </p>
+            <td style="padding: 40px 40px 20px; text-align: left;">
+              <div style="background: #7c3aed; width: 40px; height: 40px; border-radius: 12px; display: inline-block; vertical-align: middle; text-align: center; line-height: 40px; font-weight: 900; font-size: 20px;">⚡</div>
+              <span style="font-size: 24px; font-weight: 900; font-style: italic; letter-spacing: -1px; margin-left: 10px; text-transform: uppercase;">VYBB <span style="color: #7c3aed;">CIRCLE</span></span>
             </td>
           </tr>
 
-          <!-- Success Icon -->
           <tr>
-            <td style="padding: 30px 40px; text-align: center;">
-              <div style="display: inline-block; background: rgba(34, 197, 94, 0.1); border: 2px solid #22c55e; border-radius: 50%; width: 80px; height: 80px; line-height: 80px; font-size: 40px;">
-                ✓
+            <td style="padding: 0 40px 30px; text-align: left;">
+              <h1 style="font-size: 48px; font-weight: 900; font-style: italic; text-transform: uppercase; margin: 0; line-height: 0.9;">TICKET<br><span style="color: #7c3aed;">CONFIRMED</span></h1>
+              <p style="color: #52525b; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; margin-top: 20px;">PASS HASH: #${data.bookingId.substring(0, 8)}</p>
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="padding: 0 40px 40px;">
+              <div style="background: #ffffff; padding: 24px; border-radius: 24px; display: inline-block; box-shadow: 0 0 40px rgba(124, 58, 237, 0.3);">
+                <img src="${data.qrCodeUrl}" alt="Ticket QR" style="width: 200px; height: 200px; display: block;" />
               </div>
-              <h2 style="margin: 20px 0 10px; font-size: 28px; font-weight: 900; text-transform: uppercase;">
-                Ticket Confirmed!
-              </h2>
-              <p style="margin: 0; color: #a1a1aa; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; font-weight: 700;">
-                Booking ID: ${data.bookingId}
-              </p>
             </td>
           </tr>
 
-          <!-- Event Details -->
           <tr>
-            <td style="padding: 0 40px 30px;">
-              <table width="100%" cellpadding="15" cellspacing="0" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 12px;">
+            <td style="padding: 0 40px 40px;">
+              <table width="100%" style="background: #18181b; border-radius: 24px; border: 1px solid #27272a; border-spacing: 0;">
                 <tr>
-                  <td>
-                    <h3 style="margin: 0 0 20px; font-size: 24px; font-weight: 900; text-transform: uppercase; color: #a855f7;">
-                      ${data.eventTitle}
-                    </h3>
+                  <td style="padding: 30px;">
+                    <h2 style="font-size: 20px; font-weight: 900; font-style: italic; color: #ffffff; margin: 0 0 20px; text-transform: uppercase;">${data.eventTitle}</h2>
                     
-                    <table width="100%" cellpadding="8" cellspacing="0">
+                    <table width="100%" style="border-spacing: 0;">
                       <tr>
-                        <td style="color: #71717a; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">
-                          📅 Date
-                        </td>
-                        <td style="text-align: right; font-weight: 700; font-size: 14px;">
-                          ${data.eventDate}
-                        </td>
+                        <td style="padding: 8px 0; color: #71717a; font-size: 10px; font-weight: 900; text-transform: uppercase;">Date & Time</td>
+                        <td style="padding: 8px 0; color: #ffffff; font-size: 14px; font-weight: 700; text-align: right;">${data.eventDate} @ ${data.eventTime}</td>
                       </tr>
                       <tr>
-                        <td style="color: #71717a; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">
-                          🕐 Time
-                        </td>
-                        <td style="text-align: right; font-weight: 700; font-size: 14px;">
-                          ${data.eventTime}
-                        </td>
+                        <td style="padding: 8px 0; color: #71717a; font-size: 10px; font-weight: 900; text-transform: uppercase;">Venue</td>
+                        <td style="padding: 8px 0; color: #ffffff; font-size: 14px; font-weight: 700; text-align: right;">${data.eventVenue}</td>
                       </tr>
                       <tr>
-                        <td style="color: #71717a; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">
-                          📍 Venue
-                        </td>
-                        <td style="text-align: right; font-weight: 700; font-size: 14px;">
-                          ${data.eventVenue}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="color: #71717a; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">
-                          🎫 Tickets
-                        </td>
-                        <td style="text-align: right; font-weight: 700; font-size: 14px;">
-                          ${data.ticketCount} ${data.ticketCount === 1 ? 'ticket' : 'tickets'}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="color: #71717a; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">
-                          💺 Seats
-                        </td>
-                        <td style="text-align: right; font-weight: 700; font-size: 14px;">
-                          ${data.seatNumbers.join(', ')}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="color: #71717a; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">
-                          💰 Total
-                        </td>
-                        <td style="text-align: right; font-weight: 900; font-size: 18px; color: #22c55e;">
-                          ₹${data.totalAmount}
-                        </td>
+                        <td style="padding: 8px 0; color: #71717a; font-size: 10px; font-weight: 900; text-transform: uppercase;">Seats</td>
+                        <td style="padding: 8px 0; color: #7c3aed; font-size: 14px; font-weight: 900; text-align: right;">${data.seatNumbers.join(', ')}</td>
                       </tr>
                     </table>
                   </td>
@@ -184,59 +138,11 @@ function generateTicketEmailHTML(data: TicketEmailData): string {
             </td>
           </tr>
 
-          <!-- QR Code -->
           <tr>
-            <td style="padding: 0 40px 30px; text-align: center;">
-              <div style="background: #ffffff; padding: 20px; border-radius: 12px; display: inline-block;">
-                <img src="${data.qrCodeUrl}" alt="QR Code" style="width: 200px; height: 200px; display: block;" />
-              </div>
-              <p style="margin: 15px 0 0; color: #a1a1aa; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">
-                Show this QR code at the venue
-              </p>
+            <td style="padding: 30px 40px; background: #000000; text-align: center; border-top: 1px solid #1e1e1e;">
+              <p style="color: #52525b; font-size: 10px; font-weight: 700; text-transform: uppercase; margin: 0;">Verified Experience Pass</p>
             </td>
           </tr>
-
-          <!-- Important Info -->
-          <tr>
-            <td style="padding: 0 40px 40px;">
-              <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; padding: 20px;">
-                <h4 style="margin: 0 0 10px; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: #f59e0b; font-weight: 900;">
-                  ⚡ Important
-                </h4>
-                <ul style="margin: 0; padding-left: 20px; color: #d1d5db; font-size: 13px; line-height: 1.8;">
-                  <li>Please arrive 30 minutes before the event</li>
-                  <li>Carry a valid ID for verification</li>
-                  <li>QR code must be shown for entry</li>
-                  <li>No refunds after check-in</li>
-                </ul>
-              </div>
-            </td>
-          </tr>
-
-          <!-- Address -->
-          <tr>
-            <td style="padding: 0 40px 40px;">
-              <p style="margin: 0 0 5px; color: #71717a; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">
-                Venue Address
-              </p>
-              <p style="margin: 0; color: #d1d5db; font-size: 14px; line-height: 1.6;">
-                ${data.eventAddress}
-              </p>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="padding: 30px 40px; text-align: center; background: rgba(0, 0, 0, 0.4); border-top: 1px solid rgba(139, 92, 246, 0.2);">
-              <p style="margin: 0 0 10px; color: #71717a; font-size: 11px; text-transform: uppercase; letter-spacing: 2px;">
-                Need Help?
-              </p>
-              <p style="margin: 0; color: #a855f7; font-size: 13px; font-weight: 700;">
-                support@vybb.live
-              </p>
-            </td>
-          </tr>
-
         </table>
       </td>
     </tr>
@@ -253,107 +159,28 @@ function generateCheckInEmailHTML(data: CheckInEmailData): string {
 <html>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Check-In Confirmation</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #000000; color: #ffffff;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #000000;">
+<body style="margin: 0; padding: 0; background-color: #000000; color: #ffffff; font-family: sans-serif;">
+  <table width="100%" style="background-color: #000000; padding: 40px 20px;">
     <tr>
-      <td align="center" style="padding: 40px 20px;">
-        <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 16px; overflow: hidden;">
-          
-          <!-- Header -->
+      <td align="center">
+        <table width="600" style="background: #09090b; border: 1px solid #1e1e1e; border-radius: 32px; overflow: hidden; border-spacing: 0;">
           <tr>
-            <td style="padding: 40px 40px 20px; text-align: center; background: rgba(0, 0, 0, 0.4);">
-              <h1 style="margin: 0; font-size: 36px; font-weight: 900; text-transform: uppercase; letter-spacing: -1px;">
-                VYBB <span style="color: #22c55e;">LIVE</span>
-              </h1>
+            <td style="padding: 60px 40px; text-align: center;">
+              <div style="color: #22c55e; font-size: 60px; margin-bottom: 20px;">✓</div>
+              <h1 style="font-size: 40px; font-weight: 900; font-style: italic; text-transform: uppercase; margin: 0;">CHECKED <span style="color: #22c55e;">IN</span></h1>
+              <p style="color: #a1a1aa; font-size: 14px; margin-top: 10px; font-weight: 700; text-transform: uppercase;">Welcome to the Experience</p>
             </td>
           </tr>
-
-          <!-- Success Icon -->
-          <tr>
-            <td style="padding: 30px 40px; text-align: center;">
-              <div style="display: inline-block; background: rgba(34, 197, 94, 0.2); border: 3px solid #22c55e; border-radius: 50%; width: 100px; height: 100px; line-height: 100px; font-size: 50px;">
-                ✓
-              </div>
-              <h2 style="margin: 20px 0 10px; font-size: 32px; font-weight: 900; text-transform: uppercase; color: #22c55e;">
-                Checked In!
-              </h2>
-              <p style="margin: 0; color: #a1a1aa; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; font-weight: 700;">
-                Welcome to the Experience
-              </p>
-            </td>
-          </tr>
-
-          <!-- Event Details -->
-          <tr>
-            <td style="padding: 0 40px 30px;">
-              <table width="100%" cellpadding="15" cellspacing="0" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 12px;">
-                <tr>
-                  <td>
-                    <h3 style="margin: 0 0 20px; font-size: 24px; font-weight: 900; text-transform: uppercase; color: #22c55e;">
-                      ${data.eventTitle}
-                    </h3>
-                    
-                    <table width="100%" cellpadding="8" cellspacing="0">
-                      <tr>
-                        <td style="color: #71717a; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">
-                          ✅ Check-In Time
-                        </td>
-                        <td style="text-align: right; font-weight: 700; font-size: 14px;">
-                          ${data.checkInTime}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="color: #71717a; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">
-                          📍 Venue
-                        </td>
-                        <td style="text-align: right; font-weight: 700; font-size: 14px;">
-                          ${data.eventVenue}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="color: #71717a; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">
-                          💺 Your Seats
-                        </td>
-                        <td style="text-align: right; font-weight: 700; font-size: 14px;">
-                          ${data.seatNumbers.join(', ')}
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Welcome Message -->
           <tr>
             <td style="padding: 0 40px 40px;">
-              <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 12px; padding: 25px; text-align: center;">
-                <h4 style="margin: 0 0 15px; font-size: 18px; text-transform: uppercase; letter-spacing: 2px; color: #22c55e; font-weight: 900;">
-                  🎉 Enjoy the Show!
-                </h4>
-                <p style="margin: 0; color: #d1d5db; font-size: 14px; line-height: 1.6;">
-                  You're all set! Find your seats and get ready for an unforgettable experience. Thanks for being part of VYBB LIVE!
-                </p>
+              <div style="background: #111111; border: 1px solid #22c55e; padding: 25px; border-radius: 24px; text-align: center;">
+                <p style="color: #22c55e; font-size: 12px; font-weight: 900; text-transform: uppercase; margin: 0 0 10px;">Event</p>
+                <p style="font-size: 18px; font-weight: 900; margin: 0;">${data.eventTitle}</p>
+                <p style="color: #71717a; font-size: 12px; margin-top: 15px;">Verified at ${data.checkInTime}</p>
               </div>
             </td>
           </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="padding: 30px 40px; text-align: center; background: rgba(0, 0, 0, 0.4); border-top: 1px solid rgba(34, 197, 94, 0.2);">
-              <p style="margin: 0 0 10px; color: #71717a; font-size: 11px; text-transform: uppercase; letter-spacing: 2px;">
-                Questions?
-              </p>
-              <p style="margin: 0; color: #22c55e; font-size: 13px; font-weight: 700;">
-                support@vybb.live
-              </p>
-            </td>
-          </tr>
-
         </table>
       </td>
     </tr>
