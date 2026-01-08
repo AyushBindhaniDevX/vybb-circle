@@ -8,7 +8,7 @@ import { getBookingsByUserId, getEventById } from "@/lib/db-utils"
 import { Button } from "@/components/ui/button"
 import { 
   Mail, Calendar, MapPin, LogOut, 
-  Sparkles, User, Ticket, ArrowRight, CheckCircle2 
+  Sparkles, Ticket, ArrowRight, CheckCircle2 
 } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/components/auth-provider"
@@ -120,7 +120,6 @@ function ProfileContent() {
                 <AnimatePresence>
                   {bookings.map((booking, index) => {
                     const isRedeemed = booking.checked_in === true;
-                    
                     return (
                       <motion.div
                         key={booking.id}
@@ -136,14 +135,14 @@ function ProfileContent() {
                         <div className="h-32 w-full md:w-32 shrink-0 overflow-hidden rounded-2xl border border-white/5">
                           <img
                             src={booking.event?.imageUrl || "/placeholder.svg"}
-                            className="h-full w-full object-cover transition-all duration-500"
+                            className="h-full w-full object-cover"
                             alt=""
                           />
                         </div>
 
                         <div className="flex-1 flex flex-col justify-between">
                           <div className="flex justify-between items-start">
-                            <div>
+                            <div className="text-left">
                               <h3 className={`text-2xl font-black italic tracking-tight transition-colors ${!isRedeemed && 'group-hover:text-violet-400'}`}>
                                 {booking.event?.title || "Event Name"}
                               </h3>
@@ -154,14 +153,14 @@ function ProfileContent() {
                             </div>
                             
                             {isRedeemed && (
-                              <Badge className="bg-zinc-800 text-zinc-400 border-white/10 pointer-events-none">
+                              <Badge className="bg-zinc-800 text-zinc-400 border-white/10">
                                 <CheckCircle2 className="h-3 w-3 mr-1" /> REDEEMED
                               </Badge>
                             )}
                           </div>
 
                           <div className="mt-6 flex items-center justify-between pt-4 border-t border-white/5">
-                            <div className="flex flex-col">
+                            <div className="flex flex-col text-left">
                               <span className="text-[8px] font-black uppercase text-zinc-600 tracking-widest">Seats</span>
                               <span className="text-sm font-bold">{booking.seatNumbers?.join(", ")}</span>
                             </div>
@@ -190,5 +189,14 @@ function ProfileContent() {
         </div>
       </div>
     </main>
+  )
+}
+
+// THIS IS THE CRITICAL PART: MUST BE THE DEFAULT EXPORT
+export default function ProfilePage() {
+  return (
+    <ProtectedRoute>
+      <ProfileContent />
+    </ProtectedRoute>
   )
 }
