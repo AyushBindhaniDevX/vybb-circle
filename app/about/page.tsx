@@ -4,137 +4,191 @@ import { Navbar } from "@/components/navbar"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { Users, Music, Heart, Sparkles, Zap, ShieldCheck, Globe, Mic2 } from "lucide-react"
+import { 
+  Users, Music, Heart, Sparkles, Zap, Globe, Mic2, 
+  History, Fingerprint, ShieldCheck, Activity 
+} from "lucide-react"
+import { cn } from "@/lib/utils"
 
 export default function AboutPage() {
   const fadeIn = {
-    initial: { opacity: 0, y: 20 },
-    animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.6 }
+    initial: { opacity: 0, y: 30 },
+    whileInView: { opacity: 1, y: 0 },
+    viewport: { once: true },
+    transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] }
   };
 
   const stagger = {
     animate: {
       transition: {
-        staggerChildren: 0.1
+        staggerChildren: 0.15
       }
     }
   };
 
   return (
-    <main className="min-h-screen bg-black text-white selection:bg-violet-500/30 overflow-x-hidden">
-      {/* Aurora Background Effects */}
+    <main className="min-h-screen bg-[#050505] text-white selection:bg-violet-500/30 overflow-x-hidden font-sans">
+      {/* Cinematic Depth Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-violet-600/10 blur-[120px] rounded-full animate-pulse" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-fuchsia-600/10 blur-[120px] rounded-full" />
+        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-violet-600/5 blur-[140px] rounded-full animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-fuchsia-600/5 blur-[120px] rounded-full" />
       </div>
 
       <Navbar />
       
       <div className="relative z-10 mx-auto max-w-7xl px-4 pt-32 pb-24 sm:px-6 lg:px-8">
-        {/* Hero Section */}
+        
+        {/* --- 1. THE ORIGIN PROTOCOL (HERO) --- */}
         <motion.div 
           initial="initial"
           animate="animate"
           variants={stagger}
-          className="text-center mb-24"
+          className="text-center mb-32"
         >
           <motion.div variants={fadeIn}>
-            <span className="inline-block px-4 py-1 rounded-full border border-violet-500/30 bg-violet-500/10 text-[10px] font-black uppercase tracking-[0.3em] text-violet-400 mb-6">
-              <Sparkles className="inline-block h-3 w-3 mr-2" /> The Culture Movement
+            <span className="inline-block px-6 py-2 rounded-full border border-violet-500/20 bg-violet-500/5 text-[9px] font-black uppercase tracking-[0.4em] text-violet-400 mb-8 backdrop-blur-xl">
+              <History className="inline-block h-3 w-3 mr-3" /> Registry Protocol v1.0
             </span>
           </motion.div>
-          <motion.h1 variants={fadeIn} className="text-6xl md:text-8xl font-black italic tracking-tighter uppercase leading-[0.85] mb-8">
-            Our <span className="bg-gradient-to-r from-violet-400 to-fuchsia-500 bg-clip-text text-transparent">Story</span>
+          <motion.h1 variants={fadeIn} className="text-7xl md:text-[10rem] font-black italic tracking-tighter uppercase leading-[0.8] mb-12">
+            LOOP <br />
+            <span className="bg-gradient-to-r from-violet-500 via-rose-400 to-amber-400 bg-clip-text text-transparent">ORIGIN</span>
           </motion.h1>
-          <motion.p variants={fadeIn} className="text-xl text-zinc-500 max-w-2xl mx-auto font-medium lowercase border-l-2 border-violet-500/50 pl-6 text-left">
-            Born from a passion for authentic music experiences, VYBB LIVE is the pulse of a generation that values connection over noise.
+          <motion.p variants={fadeIn} className="text-xl md:text-2xl text-zinc-500 max-w-3xl mx-auto font-medium lowercase border-l-2 border-violet-500/30 pl-8 text-left leading-relaxed">
+            Born in Bhubaneswar, 2024. VYBB Circle was founded as a private registry for those who value the depth of a jam over the noise of a crowd.
           </motion.p>
         </motion.div>
 
-        {/* Vision & Lifestyle Grid */}
-        <div className="grid lg:grid-cols-2 gap-12 mb-32 items-center">
+        {/* --- 2. CORE PHILOSOPHY GRID --- */}
+        <div className="grid lg:grid-cols-12 gap-16 mb-40 items-start">
           <motion.div 
-            initial={{ opacity: 0, x: -30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="space-y-8"
+            {...fadeIn}
+            className="lg:col-span-5 space-y-10"
           >
-            <h2 className="text-4xl font-black italic uppercase tracking-tighter">The Experience Priority</h2>
-            <div className="space-y-6 text-zinc-400 font-medium leading-relaxed">
+            <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 border border-white/10">
+               <Fingerprint className="h-6 w-6 text-violet-500" />
+            </div>
+            <h2 className="text-5xl font-black italic uppercase tracking-tighter leading-none">The Experience <br/>Priority.</h2>
+            <div className="space-y-8 text-zinc-500 font-medium leading-relaxed lowercase text-lg">
               <p>
-                For the modern young adult, lifestyle isn't about the cost of the entry; it's about the depth of the experience. We've transitioned from the era of mass-market clubs to the era of curated circles.
+                Lifestyle isn't about entry price; it's about the depth of the loop. We've moved past mass-market clubs into the era of the curated circle.
               </p>
               <p>
-                VYBB LIVE recognizes that your time is your highest currency. We prioritize intimate settings where music isn't just heard, but felt, and where every attendee is part of the shared memory, not just a face in a crowd.
+                Your time is the highest currency. We prioritize high-fidelity acoustics where music is felt, and every attendee is an authorized part of the shared memory.
               </p>
-              <p className="text-white italic bg-white/5 p-4 rounded-2xl border-l-4 border-violet-600">
-                "Since our first open mic in 2024, we've grown into a community united by a simple idea: great music deserves an authentic environment".
-              </p>
+              <div className="bg-zinc-950 p-8 rounded-[2.5rem] border border-white/5 shadow-2xl relative overflow-hidden group">
+                <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-violet-500/40 to-transparent" />
+                <p className="text-white italic relative z-10 leading-relaxed">
+                  "Every session is a protocol. Every jam is a loop. We bridge the gap between digital discovery and physical belonging."
+                </p>
+              </div>
             </div>
           </motion.div>
 
-          {/* Magic Bento Components */}
+          {/* THE TECH-BENTO GRID */}
           <motion.div 
             variants={stagger}
             initial="initial"
             whileInView="animate"
             viewport={{ once: true }}
-            className="grid grid-cols-1 sm:grid-cols-2 gap-6"
+            className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-6"
           >
-            <motion.div variants={fadeIn} className="p-8 rounded-[2rem] border border-white/10 bg-zinc-900/20 backdrop-blur-xl group hover:border-violet-500/50 transition-all">
-              <Mic2 className="h-8 w-8 text-violet-500 mb-4 group-hover:scale-110 transition-transform" />
-              <h3 className="font-black italic uppercase text-lg mb-2">Artist First</h3>
-              <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest leading-loose">Prioritizing creative freedom and artist comfort above all else.</p>
-            </motion.div>
-
-            <motion.div variants={fadeIn} className="p-8 rounded-[2rem] border border-white/10 bg-zinc-900/20 backdrop-blur-xl group hover:border-fuchsia-500/50 transition-all">
-              <Users className="h-8 w-8 text-fuchsia-500 mb-4 group-hover:scale-110 transition-transform" />
-              <h3 className="font-black italic uppercase text-lg mb-2">Community</h3>
-              <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest leading-loose">Every event is shaped by the feedback of our growing circle.</p>
-            </motion.div>
-
-            <motion.div variants={fadeIn} className="p-8 rounded-[2rem] border border-white/10 bg-zinc-900/20 backdrop-blur-xl group hover:border-violet-500/50 transition-all sm:col-span-2">
-              <Globe className="h-8 w-8 text-violet-400 mb-4 group-hover:scale-110 transition-transform" />
-              <h3 className="font-black italic uppercase text-lg mb-2">Young Adult Lifestyle</h3>
-              <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest leading-loose">
-                Curated for those who seek authenticity. We bridge the gap between digital discovery and physical belonging.
+            <motion.div variants={fadeIn} className="p-10 rounded-[2.5rem] border border-white/5 bg-zinc-900/10 backdrop-blur-2xl group hover:border-violet-500/30 transition-all shadow-3xl">
+              <div className="h-14 w-14 rounded-2xl bg-violet-600/10 border border-violet-500/20 flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
+                <Mic2 className="h-6 w-6 text-violet-500" />
+              </div>
+              <h3 className="font-black italic uppercase text-2xl mb-4 tracking-tighter">Artist First</h3>
+              <p className="text-[10px] text-zinc-600 font-black uppercase tracking-[0.2em] leading-relaxed">
+                Prioritizing creative freedom and loop-integrity above market noise.
               </p>
+            </motion.div>
+
+            <motion.div variants={fadeIn} className="p-10 rounded-[2.5rem] border border-white/5 bg-zinc-900/10 backdrop-blur-2xl group hover:border-rose-500/30 transition-all shadow-3xl">
+              <div className="h-14 w-14 rounded-2xl bg-rose-600/10 border border-rose-500/20 flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
+                <Users className="h-6 w-6 text-rose-500" />
+              </div>
+              <h3 className="font-black italic uppercase text-2xl mb-4 tracking-tighter">Community</h3>
+              <p className="text-[10px] text-zinc-600 font-black uppercase tracking-[0.2em] leading-relaxed">
+                A verified collective shaped by the pulse of our growing circle.
+              </p>
+            </motion.div>
+
+            <motion.div variants={fadeIn} className="p-10 rounded-[2.5rem] border border-white/10 bg-gradient-to-br from-zinc-900/40 to-black backdrop-blur-2xl group hover:border-violet-500/50 transition-all sm:col-span-2 shadow-3xl relative overflow-hidden">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(124,58,237,0.1),transparent_70%)] opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="relative z-10">
+                <div className="h-14 w-14 rounded-2xl bg-violet-400/10 border border-violet-400/20 flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
+                  <Activity className="h-6 w-6 text-violet-400" />
+                </div>
+                <h3 className="font-black italic uppercase text-3xl mb-4 tracking-tighter">Kinetic Lifestyle</h3>
+                <p className="text-xs text-zinc-500 font-bold uppercase tracking-[0.3em] leading-loose max-w-md">
+                  Curated for the high-fidelity generation. We bridge physical space with the digital identity.
+                </p>
+              </div>
             </motion.div>
           </motion.div>
         </div>
 
-        {/* Final CTA */}
+        {/* --- 3. THE PROTOCOL CTA --- */}
         <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, scale: 0.98 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
-          className="text-center p-16 rounded-[3rem] border border-white/10 bg-zinc-900/10 backdrop-blur-3xl relative overflow-hidden"
+          className="relative rounded-[4rem] border border-white/5 bg-zinc-950 p-24 text-center overflow-hidden shadow-3xl"
         >
-          <div className="absolute top-0 right-0 w-32 h-32 bg-violet-600/10 blur-3xl -mr-16 -mt-16" />
-          <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter mb-8">
-            Ready to <span className="text-violet-500">Belong?</span>
-          </h2>
-          <Link href="/events">
-            <Button size="lg" className="bg-white text-black hover:bg-violet-600 hover:text-white rounded-full font-black px-10 h-16 text-lg transition-all active:scale-95 shadow-xl shadow-violet-500/10">
-              EXPLORE EXPERIENCES <Zap className="ml-2 h-5 w-5 fill-current" />
-            </Button>
-          </Link>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(124,58,237,0.1),transparent_70%)]" />
+          
+          <div className="relative z-10 space-y-12">
+            <h2 className="text-6xl md:text-8xl font-black italic uppercase tracking-tighter leading-[0.8]">
+              JOIN THE <br/><span className="text-violet-500">CIRCLE</span>
+            </h2>
+            <p className="text-lg text-zinc-500 max-w-xl mx-auto font-medium lowercase italic leading-relaxed">
+              Unlock unauthorized experiences. Join the Bhubaneswar registry and discover your pulse.
+            </p>
+            <Link href="/events" className="inline-block">
+              <Button size="lg" className="rounded-full bg-white text-black hover:bg-violet-600 hover:text-white font-black px-16 h-20 text-xl transition-all active:scale-95 shadow-3xl shadow-violet-600/20 uppercase tracking-[0.2em]">
+                OPEN REGISTRY <ArrowRight className="ml-3 h-6 w-6" />
+              </Button>
+            </Link>
+          </div>
         </motion.div>
       </div>
 
-      <footer className="border-t border-white/5 bg-black px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl flex flex-col items-center justify-between gap-6 md:flex-row">
-          <div className="text-xl font-black italic tracking-tighter uppercase">
-            VYBB <span className="text-violet-500">LIVE</span>
+      {/* --- COMMAND FOOTER --- */}
+      <footer className="py-24 border-t border-white/5 bg-black">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-12">
+          <div className="text-3xl font-black italic tracking-tighter uppercase">
+             VYBB <span className="text-violet-500 italic">LIVE</span>
           </div>
-          <div className="flex gap-12 text-[10px] font-black uppercase tracking-widest text-zinc-500">
-            <Link href="/about" className="hover:text-white">Our Story</Link>
-            <Link href="/events" className="hover:text-white">Experiences</Link>
+          <div className="flex gap-16 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600">
+             <Link href="/events" className="hover:text-violet-400 transition-colors">Experiences</Link>
+             <Link href="/signup" className="hover:text-violet-400 transition-colors">Identity</Link>
+             <Link href="/profile" className="hover:text-violet-400 transition-colors">Vault</Link>
           </div>
-          <div className="text-[10px] font-bold text-zinc-700 uppercase tracking-widest">© 2026 Vybb Circle.</div>
+          <div className="text-[10px] font-bold text-zinc-800 uppercase tracking-widest">
+             © 2026 Registry Protocol Secured.
+          </div>
         </div>
       </footer>
     </main>
+  )
+}
+
+function ArrowRight(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 12h14" />
+      <path d="m12 5 7 7-7 7" />
+    </svg>
   )
 }
