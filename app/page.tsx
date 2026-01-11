@@ -5,15 +5,16 @@ import { SpotlightCard } from "@/components/spotlight-card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
-import { Music, Mic2, Users, ArrowRight, Calendar, MapPin, Sparkles, Zap, ShieldCheck, Ticket } from "lucide-react"
-import { useEffect, useState } from "react"
+import { Music, Mic2, Users, ArrowRight, Calendar, MapPin, Sparkles, Zap, ShieldCheck, Ticket, History } from "lucide-react"
+import { useEffect, useState, useMemo } from "react"
 import { getFeaturedEvents, type Event } from "@/lib/db-utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { motion, AnimatePresence } from "framer-motion"
+import { cn } from "@/lib/utils"
 
 // --- React Bits Components ---
 
-// 1. Counter Bit
+// 1. Counter Bit (Scalable Registry Counter)
 const RollingCounter = ({ value }: { value: number }) => {
   const [count, setCount] = useState(0);
   useEffect(() => {
@@ -31,43 +32,53 @@ const RollingCounter = ({ value }: { value: number }) => {
     }, 30);
     return () => clearInterval(timer);
   }, [value]);
-  return <span className="tabular-nums">{count.toLocaleString()}+</span>;
+  return <span className="tabular-nums font-black italic">{count.toLocaleString()}+</span>;
 };
 
-// 2. Bounce Card Bit (Hero Visuals)
+// 2. Bounce Card Bit (Experience Visuals)
 const BounceCard = ({ className, delay = 0 }: { className?: string; delay?: number }) => (
   <motion.div
     initial={{ y: 0 }}
-    animate={{ y: [-10, 10, -10] }}
-    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay }}
-    className={`rounded-2xl border border-white/10 bg-zinc-900/50 backdrop-blur-md p-4 shadow-2xl ${className}`}
+    animate={{ y: [-15, 15, -15] }}
+    transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay }}
+    className={cn("rounded-2xl border border-white/10 bg-zinc-950/50 backdrop-blur-xl p-6 shadow-2xl transition-all duration-700", className)}
   >
-    <div className="flex items-center gap-3">
-      <div className="h-8 w-8 rounded-full bg-violet-500/20 flex items-center justify-center">
-        <Ticket className="h-4 w-4 text-violet-400" />
+    <div className="flex items-center gap-4">
+      <div className="h-10 w-10 rounded-2xl bg-violet-600/20 flex items-center justify-center border border-violet-500/20">
+        <Ticket className="h-5 w-5 text-violet-400" />
       </div>
-      <div className="h-2 w-16 bg-white/10 rounded" />
+      <div className="space-y-2">
+        <div className="h-2 w-20 bg-white/10 rounded-full" />
+        <div className="h-1.5 w-12 bg-white/5 rounded-full" />
+      </div>
     </div>
   </motion.div>
 );
 
 export default function Home() {
-  const [featuredEvents, setFeaturedEvents] = useState<Event[]>([])
+  const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const events = await getFeaturedEvents(3)
-        setFeaturedEvents(events)
+        const data = await getFeaturedEvents(10) // Fetch larger pool to filter
+        setEvents(data)
       } catch (error) {
-        console.error("Error fetching featured events:", error)
+        console.error("Pulse Sync Error:", error)
       } finally {
         setLoading(false)
       }
     }
     fetchEvents()
   }, [])
+
+  // Protocol: Filter and Sort to prioritize upcoming "Drops"
+  const featuredEvents = useMemo(() => {
+    return events
+      .filter(e => new Date(e.date).getTime() >= new Date().setHours(0,0,0,0))
+      .slice(0, 4);
+  }, [events]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -78,105 +89,99 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-black text-white selection:bg-violet-500/30 font-sans overflow-x-hidden">
-      {/* Aurora Background Effects */}
+      {/* Aurora Atmosphere */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[25%] -left-[10%] w-[70%] h-[70%] bg-violet-600/10 blur-[120px] rounded-full animate-pulse" />
-        <div className="absolute top-[20%] -right-[10%] w-[50%] h-[50%] bg-fuchsia-600/10 blur-[120px] rounded-full" />
+        <div className="absolute top-[-25%] left-[-10%] w-[70%] h-[70%] bg-violet-600/10 blur-[120px] rounded-full animate-pulse" />
+        <div className="absolute top-[20%] right-[-10%] w-[50%] h-[50%] bg-[#7c3aed]/5 blur-[120px] rounded-full" />
       </div>
 
       <Navbar />
 
-      {/* Hero Section with Bounce Cards */}
+      {/* Hero Protocol */}
       <section className="relative flex min-h-screen flex-col items-center justify-center px-4 pt-32 text-center overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-7xl pointer-events-none">
-          <BounceCard className="absolute top-[-200px] left-[10%] rotate-[-12deg]" delay={0} />
-          <BounceCard className="absolute top-[100px] right-[5%] rotate-[8deg]" delay={1} />
-          <BounceCard className="absolute bottom-[-150px] left-[15%] rotate-[5deg]" delay={2} />
+          <BounceCard className="absolute top-[-250px] left-[5%] rotate-[-15deg] opacity-40 scale-75" delay={0} />
+          <BounceCard className="absolute top-[50px] right-[2%] rotate-[12deg]" delay={1.5} />
+          <BounceCard className="absolute bottom-[-180px] left-[12%] rotate-[8deg] opacity-60" delay={2.5} />
         </div>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          className="relative z-10"
-        >
-          <Badge className="mb-8 border-violet-500/30 bg-violet-500/10 px-6 py-2 text-[10px] font-black tracking-[0.3em] text-violet-400 uppercase backdrop-blur-md">
-            <Sparkles className="mr-2 h-3 w-3" /> Experience the Unfiltered
+        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, ease: "easeOut" }} className="relative z-10">
+          <Badge className="mb-8 border-violet-500/30 bg-violet-500/10 px-8 py-3 text-[10px] font-black tracking-[0.4em] text-violet-400 uppercase backdrop-blur-xl">
+            <Sparkles className="mr-3 h-3 w-3 animate-ping" /> Experience the Loop
           </Badge>
-          <h1 className="max-w-5xl text-balance text-6xl font-black italic tracking-tighter sm:text-9xl uppercase leading-[0.8] mb-8">
+          <h1 className="max-w-6xl text-balance text-7xl font-black italic tracking-tighter sm:text-[10rem] uppercase leading-[0.8] mb-12">
             Live the <br />
-            <span className="bg-gradient-to-r from-violet-400 via-fuchsia-500 to-violet-400 bg-clip-text text-transparent animate-gradient">
-              Experience
+            <span className="bg-gradient-to-r from-violet-400 via-fuchsia-400 to-violet-500 bg-clip-text text-transparent animate-gradient">
+              Pulse
             </span>
           </h1>
-        
 
-          <div className="mt-12 flex flex-wrap justify-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-8 mt-16">
             <Link href="/events">
-               <Button size="lg" className="rounded-full bg-white text-black hover:bg-violet-600 hover:text-white font-black px-12 h-16 transition-all active:scale-95 shadow-xl shadow-violet-500/20">
-                  GET TICKETS <ArrowRight className="ml-2 h-5 w-5" />
+               <Button size="lg" className="rounded-full bg-white text-black hover:bg-violet-600 hover:text-white font-black px-12 h-20 transition-all active:scale-95 shadow-2xl shadow-violet-500/30 text-lg uppercase tracking-widest">
+                  ACCESS HUB <ArrowRight className="ml-3 h-6 w-6" />
                </Button>
             </Link>
+            <div className="flex flex-col items-start gap-1">
+              <p className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em]">Circle Registry</p>
+              <div className="text-2xl font-black italic text-white"><RollingCounter value={2400} /> Active</div>
+            </div>
           </div>
         </motion.div>
       </section>
 
-      {/* Magic Bento - Grid Layout */}
-      <section className="relative z-10 mx-auto max-w-7xl px-4 py-32 sm:px-6 lg:px-8">
-        <div className="mb-20 flex items-center justify-between">
-          <div className="space-y-4">
+      {/* Latest Drops Section (Experience Loop Protection Active) */}
+      <section className="relative z-10 mx-auto max-w-7xl px-4 py-40 sm:px-6 lg:px-8">
+        <div className="mb-24 flex items-end justify-between border-b border-white/5 pb-12">
+          <div className="space-y-6">
             <div className="flex items-center gap-4">
-               <Zap className="text-violet-500 h-8 w-8" />
-               <h2 className="text-4xl font-black italic uppercase tracking-tighter sm:text-6xl">Latest Drops</h2>
+               <Zap className="text-violet-500 h-10 w-10 fill-current" />
+               <h2 className="text-5xl font-black italic uppercase tracking-tighter sm:text-7xl">Latest Drops</h2>
             </div>
-            <div className="h-1 w-24 bg-violet-600 rounded-full" />
+            <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Curated experiences synced with your pulse</p>
           </div>
-          <Link href="/events" className="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors">
-            View All Events —&gt;
+          <Link href="/events" className="text-[10px] font-black uppercase tracking-[0.3em] text-violet-500 hover:text-white transition-all mb-4">
+            ALL EXPERIENCES —&gt;
           </Link>
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-4 md:grid-rows-2">
-            <Skeleton className="md:col-span-2 md:row-span-2 h-[600px] rounded-[2.5rem] bg-zinc-900" />
-            <Skeleton className="md:col-span-2 h-[290px] rounded-[2.5rem] bg-zinc-900" />
-            <Skeleton className="md:col-span-1 h-[290px] rounded-[2.5rem] bg-zinc-900" />
-            <Skeleton className="md:col-span-1 h-[290px] rounded-[2.5rem] bg-zinc-900" />
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-4 md:grid-rows-2">
+            <Skeleton className="md:col-span-2 md:row-span-2 h-[600px] rounded-[3rem] bg-zinc-900/50" />
+            <Skeleton className="md:col-span-2 h-[290px] rounded-[3rem] bg-zinc-900/50" />
+            <Skeleton className="md:col-span-1 h-[290px] rounded-[3rem] bg-zinc-900/50" />
+            <Skeleton className="md:col-span-1 h-[290px] rounded-[3rem] bg-zinc-900/50" />
+          </div>
+        ) : featuredEvents.length === 0 ? (
+          <div className="py-40 text-center rounded-[3rem] border-2 border-dashed border-white/5 bg-zinc-950/40">
+             <History className="h-12 w-12 text-zinc-800 mx-auto mb-6" />
+             <h3 className="text-xl font-black uppercase italic text-zinc-600">No Live Drops // Protocol Refreshing</h3>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-4 md:grid-rows-2">
-            {/* Bento Primary Item */}
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-4 md:grid-rows-2">
+            {/* Primary Drop */}
             {featuredEvents[0] && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.9 }} 
-                whileInView={{ opacity: 1, scale: 1 }}
-                className="md:col-span-2 md:row-span-2 group relative overflow-hidden rounded-[2.5rem] border border-white/5"
-              >
-                <img src={featuredEvents[0].imageUrl} className="h-full w-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition-transform duration-1000 group-hover:scale-105" />
+              <motion.div initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} className="md:col-span-2 md:row-span-2 group relative overflow-hidden rounded-[3rem] border border-white/10 bg-zinc-950 shadow-2xl">
+                <img src={featuredEvents[0].imageUrl} className="h-full w-full object-cover grayscale-[0.4] group-hover:grayscale-0 transition-all duration-1000 group-hover:scale-105" alt="" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 p-10">
-                  <Badge className="bg-violet-600 mb-4">{featuredEvents[0].category}</Badge>
-                  <h3 className="text-5xl font-black italic uppercase tracking-tighter leading-none mb-4">{featuredEvents[0].title}</h3>
+                <div className="absolute inset-0 p-12 flex flex-col justify-end">
+                  <Badge className="bg-violet-600/90 text-white w-fit px-4 py-1.5 mb-6 font-black italic uppercase tracking-widest">{featuredEvents[0].category}</Badge>
+                  <h3 className="text-5xl sm:text-6xl font-black italic uppercase tracking-tighter leading-none mb-8 group-hover:text-violet-400 transition-colors">{featuredEvents[0].title}</h3>
                   <Link href={`/events/${featuredEvents[0].id}`}>
-                    <Button className="rounded-full bg-white text-black font-black">RESERVE NOW</Button>
+                    <Button className="h-16 rounded-2xl bg-white text-black font-black uppercase px-10 hover:bg-violet-600 hover:text-white transition-all shadow-xl">RESERVE SLOT</Button>
                   </Link>
                 </div>
               </motion.div>
             )}
-            {/* Bento Secondary Items */}
+
+            {/* Secondary Drops */}
             {featuredEvents.slice(1, 4).map((exp, i) => (
-              <motion.div 
-                key={exp.id}
-                initial={{ opacity: 0, x: 20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className={`${i === 0 ? 'md:col-span-2' : 'md:col-span-1'} group relative overflow-hidden rounded-[2.5rem] border border-white/5 bg-zinc-900/50`}
-              >
-                <img src={exp.imageUrl} className="h-full w-full object-cover opacity-50 group-hover:opacity-100 transition-all grayscale group-hover:grayscale-0" />
-                <div className="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors" />
+              <motion.div key={exp.id} initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }} className={cn(i === 0 ? "md:col-span-2" : "md:col-span-1", "group relative overflow-hidden rounded-[3rem] border border-white/5 bg-zinc-900/40")}>
+                <img src={exp.imageUrl} className="h-full w-full object-cover opacity-40 group-hover:opacity-100 grayscale group-hover:grayscale-0 transition-all duration-700" alt="" />
+                <div className="absolute inset-0 bg-black/60 group-hover:bg-transparent transition-all duration-500" />
                 <div className="absolute inset-0 p-8 flex flex-col justify-end">
-                   <h3 className="text-xl font-black italic uppercase leading-tight">{exp.title}</h3>
-                   <p className="text-[10px] font-black text-zinc-400 tracking-widest mt-2">{formatDate(exp.date)}</p>
+                   <h3 className="text-xl font-black italic uppercase text-white leading-tight mb-2 group-hover:text-violet-400 transition-colors">{exp.title}</h3>
+                   <p className="text-[9px] font-black text-zinc-500 tracking-[0.2em] uppercase">{formatDate(exp.date)}</p>
                 </div>
                 <Link href={`/events/${exp.id}`} className="absolute inset-0 z-10" />
               </motion.div>
@@ -185,49 +190,14 @@ export default function Home() {
         )}
       </section>
 
-      {/* Pixel Card Section (The Culture) */}
-      <section className="relative z-10 px-4 py-32 sm:px-6 lg:px-8 bg-zinc-950/50 backdrop-blur-md">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-24 text-center">
-            <h2 className="text-4xl font-black italic tracking-tighter sm:text-6xl uppercase">The Culture</h2>
-            <p className="mt-4 text-zinc-500 font-medium lowercase tracking-widest">We&apos;re more than just events; we&apos;re a movement.</p>
-          </div>
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            {[
-              { icon: <Mic2 />, title: "Artist First", desc: "We provide a platform for emerging talent in intimate settings." },
-              { icon: <Music />, title: "High Fidelity", desc: "Meticulously planned sound systems for an immersive vybb." },
-              { icon: <Users />, title: "Community", desc: "Join our circle and discover a tribe that shares your pulse." }
-            ].map((feature, i) => (
-              <motion.div 
-                key={i}
-                whileHover={{ y: -10 }}
-                className="relative p-1 group overflow-hidden rounded-[2rem]"
-              >
-                {/* Pixel/Spotlight Card Effect */}
-                <div className="absolute inset-0 bg-gradient-to-br from-violet-600/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="relative rounded-[1.9rem] bg-black border border-white/5 p-10 h-full">
-                  <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-500/10 text-violet-400 border border-violet-500/20">
-                    {feature.icon}
-                  </div>
-                  <h3 className="mb-4 text-2xl font-black italic uppercase tracking-tight">{feature.title}</h3>
-                  <p className="text-zinc-500 text-sm leading-relaxed font-medium">
-                    {feature.desc}
-                  </p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
+      {/* CTA Registry Section */}
       <section className="relative z-10 px-4 py-40 overflow-hidden">
         <div className="absolute inset-0 -z-10 bg-violet-600/5 blur-[120px] rounded-full" />
-        <div className="mx-auto max-w-4xl text-center rounded-[3rem] border border-white/5 bg-zinc-900/20 p-20 backdrop-blur-xl">
-          <h2 className="text-5xl font-black italic mb-8 uppercase tracking-tighter sm:text-7xl leading-none">Ready to <br/><span className="text-violet-500">Vybb?</span></h2>
-          <div className="flex flex-col sm:flex-row gap-6 justify-center">
+        <div className="mx-auto max-w-5xl text-center rounded-[4rem] border border-white/5 bg-gradient-to-br from-zinc-900/40 to-black p-24 backdrop-blur-2xl shadow-3xl">
+          <h2 className="text-6xl font-black italic mb-10 uppercase tracking-tighter sm:text-8xl leading-[0.8]">Ready to <br/><span className="text-violet-500 italic">Sync?</span></h2>
+          <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
             <Link href="/events">
-              <Button size="lg" className="bg-white text-black hover:bg-violet-600 hover:text-white px-12 h-16 rounded-full font-black text-lg transition-all active:scale-95 shadow-2xl shadow-violet-500/10">
+              <Button size="lg" className="bg-white text-black hover:bg-violet-600 hover:text-white px-16 h-20 rounded-[1.5rem] font-black text-xl transition-all active:scale-95 shadow-2xl">
                 JOIN THE CIRCLE
               </Button>
             </Link>
@@ -235,17 +205,15 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-white/5 bg-black px-4 py-20 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl flex flex-col items-center justify-between gap-12 md:flex-row">
-          <div className="text-2xl font-black italic tracking-tighter">
-            VYBB <span className="text-violet-500">LIVE</span>
+      {/* Command Footer */}
+      <footer className="relative z-10 border-t border-white/5 bg-black px-4 py-24">
+        <div className="mx-auto max-w-7xl flex flex-col items-center justify-between gap-16 md:flex-row">
+          <div className="text-3xl font-black italic tracking-tighter uppercase">VYBB <span className="text-violet-500">CIRCLE</span></div>
+          <div className="flex flex-wrap justify-center gap-16 text-[10px] font-black tracking-[0.3em] text-zinc-600 uppercase">
+            <Link href="/about" className="hover:text-violet-400 transition-colors">Our Origin</Link>
+            <Link href="/events" className="hover:text-violet-400 transition-colors">Registry</Link>
           </div>
-          <div className="flex flex-wrap justify-center gap-12 text-[10px] font-black tracking-[0.2em] text-zinc-500 uppercase">
-            <Link href="/about" className="hover:text-violet-400 transition-colors">Our Story</Link>
-            <Link href="/events" className="hover:text-violet-400 transition-colors">Experiences</Link>
-          </div>
-          <div className="text-[10px] font-bold text-zinc-700 uppercase tracking-widest">© 2026 Vybb Circle.</div>
+          <div className="text-[10px] font-bold text-zinc-800 uppercase tracking-widest">© 2026 Registry Protocol Secured.</div>
         </div>
       </footer>
     </main>
