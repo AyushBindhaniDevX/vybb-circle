@@ -86,28 +86,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* --- STORIES BAR: LIVE LOOPS --- */}
-        <section className="relative z-20 -mt-16 mb-24 px-4 max-w-7xl mx-auto">
-           <div className="flex gap-8 pb-4 overflow-x-auto no-scrollbar justify-start md:justify-center">
-              {[
-                { label: "Acoustics", img: "https://images.unsplash.com/photo-1514525253361-bee243870d2c?w=400&auto=format&fit=crop" },
-                { label: "Elite Club", img: "https://images.unsplash.com/photo-1566737236500-c8ac43014a67?w=400&auto=format&fit=crop" },
-                { label: "Jam Sessions", img: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop" },
-                { label: "Sports Protocol", img: "https://images.unsplash.com/photo-1541252260730-0412e8e2108e?w=400&auto=format&fit=crop" },
-                { label: "Workshops", img: "https://images.unsplash.com/photo-1529070532902-1327170882ef?w=400&auto=format&fit=crop" },
-              ].map((story, i) => (
-                <div key={i} className="flex-shrink-0 group cursor-pointer text-center">
-                   <div className="h-24 w-24 rounded-full p-[3px] bg-gradient-to-tr from-violet-600 to-rose-500 mb-4 transition-transform group-hover:scale-110">
-                      <div className="h-full w-full rounded-full border-4 border-[#050505] overflow-hidden bg-zinc-900">
-                         <img src={story.img} className="h-full w-full object-cover" alt={story.label} />
-                      </div>
-                   </div>
-                   <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 group-hover:text-white transition-colors">{story.label}</span>
-                </div>
-              ))}
-           </div>
-        </section>
-
         {/* --- FEATURED GRID: CIRCLE HIGHLIGHT --- */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 border-t border-white/5">
           <div className="grid lg:grid-cols-12 gap-16 items-center">
